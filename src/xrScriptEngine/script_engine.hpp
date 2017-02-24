@@ -89,7 +89,7 @@ protected:
     CScriptProcessStorage m_script_processes;
     int m_stack_level;
 #ifdef DEBUG
-    CMemoryWriter m_output;  // for call stack
+    CMemoryWriter m_output; // for call stack
 #endif
 #ifdef USE_DEBUGGER
 #ifndef USE_LUA_STUDIO
@@ -136,7 +136,7 @@ public:
     luabind::object name_space(LPCSTR namespace_name);
     int error_log(LPCSTR caFormat, ...);
     int script_log(LuaMessageType message, LPCSTR caFormat, ...);
-    static bool print_output(lua_State* L, LPCSTR caScriptName, int iErrorCode = 0);
+    static bool print_output(lua_State* L, LPCSTR caScriptName, int iErrorCode = 0, const char* caErrorText = NULL);
 
 private:
     static void print_error(lua_State* L, int iErrorCode);
@@ -201,7 +201,8 @@ template <typename TResult>
 IC bool CScriptEngine::functor(LPCSTR function_to_call, luabind::functor<TResult>& lua_function)
 {
     luabind::object object;
-    if (!function_object(function_to_call, object)) return false;
+    if (!function_object(function_to_call, object))
+        return false;
     lua_function = object;
     return true;
 }
