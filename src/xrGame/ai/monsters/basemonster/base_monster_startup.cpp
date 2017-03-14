@@ -373,7 +373,7 @@ BOOL CBaseMonster::net_Spawn(CSE_Abstract* DC)
 
 void CBaseMonster::net_Destroy()
 {
-    // ôóíêöèÿ äîëæåíà áûòü âûçâàíà ïåðåä inherited
+    // Ñ„ÑƒÐ½ÐºÑ†Ð¸Ñ Ð´Ð¾Ð»Ð¶ÐµÐ½Ð° Ð±Ñ‹Ñ‚ÑŒ Ð²Ñ‹Ð·Ð²Ð°Ð½Ð° Ð¿ÐµÑ€ÐµÐ´ inherited
     if (m_controlled)
         m_controlled->on_destroy();
     if (StateMan)
@@ -449,10 +449,10 @@ void CBaseMonster::settings_read(CInifile const* ini, LPCSTR section, SMonsterSe
         if (ini->line_exist(ppi_section, "color_base"))
             sscanf(ini->r_string(ppi_section, "color_base"), "%f,%f,%f", &data.m_attack_effector.ppi.color_base.r,
                 &data.m_attack_effector.ppi.color_base.g, &data.m_attack_effector.ppi.color_base.b);
-        if (ini->line_exist(ppi_section, "color_base"))
+        if (ini->line_exist(ppi_section, "color_gray"))
             sscanf(ini->r_string(ppi_section, "color_gray"), "%f,%f,%f", &data.m_attack_effector.ppi.color_gray.r,
                 &data.m_attack_effector.ppi.color_gray.g, &data.m_attack_effector.ppi.color_gray.b);
-        if (ini->line_exist(ppi_section, "color_base"))
+        if (ini->line_exist(ppi_section, "color_add"))
             sscanf(ini->r_string(ppi_section, "color_add"), "%f,%f,%f", &data.m_attack_effector.ppi.color_add.r,
                 &data.m_attack_effector.ppi.color_add.g, &data.m_attack_effector.ppi.color_add.b);
 

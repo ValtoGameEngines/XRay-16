@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////////////////////
-// relation_registry.cpp:	реестр для хранения данных об отношении персонажа к
-//							другим персонажам
+// relation_registry.cpp:	СЂРµРµСЃС‚СЂ РґР»СЏ С…СЂР°РЅРµРЅРёСЏ РґР°РЅРЅС‹С… РѕР± РѕС‚РЅРѕС€РµРЅРёРё РїРµСЂСЃРѕРЅР°Р¶Р° Рє
+//							РґСЂСѓРіРёРј РїРµСЂСЃРѕРЅР°Р¶Р°Рј
 //////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
@@ -46,7 +46,6 @@ RELATION_REGISTRY::RELATION_MAP_SPOTS::RELATION_MAP_SPOTS()
     spot_names[ALife::eRelationTypeFriend] = "friend_location";
     spot_names[ALife::eRelationTypeNeutral] = "neutral_location";
     spot_names[ALife::eRelationTypeEnemy] = "enemy_location";
-    spot_names[ALife::eRelationTypeWorstEnemy] = "enemy_location";
     spot_names[ALife::eRelationTypeWorstEnemy] = "enemy_location";
     spot_names[ALife::eRelationTypeLast] = "neutral_location";
 }
@@ -124,7 +123,7 @@ CHARACTER_GOODWILL RELATION_REGISTRY::GetGoodwill(u16 from, u16 to) const
             return relation.Goodwill();
         }
     }
-    //если отношение еще не задано, то возвращаем нейтральное
+    //РµСЃР»Рё РѕС‚РЅРѕС€РµРЅРёРµ РµС‰Рµ РЅРµ Р·Р°РґР°РЅРѕ, С‚Рѕ РІРѕР·РІСЂР°С‰Р°РµРј РЅРµР№С‚СЂР°Р»СЊРЅРѕРµ
     return NEUTRAL_GOODWILL;
 }
 
@@ -179,7 +178,7 @@ CHARACTER_GOODWILL RELATION_REGISTRY::GetCommunityGoodwill(
             return relation.Goodwill();
         }
     }
-    //если отношение еще не задано, то возвращаем нейтральное
+    //РµСЃР»Рё РѕС‚РЅРѕС€РµРЅРёРµ РµС‰Рµ РЅРµ Р·Р°РґР°РЅРѕ, С‚Рѕ РІРѕР·РІСЂР°С‰Р°РµРј РЅРµР№С‚СЂР°Р»СЊРЅРѕРµ
     return NEUTRAL_GOODWILL;
 }
 
