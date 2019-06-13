@@ -4,14 +4,15 @@
 #include "GamePersistent.h"
 #include "UIGameCustom.h"
 #include "xrScriptEngine/script_engine.hpp"
-#include "xr_Level_controller.h"
+#include "xr_level_controller.h"
 #include "ui/UIMainIngameWnd.h"
-#include "UI/UIGameTutorial.h"
-#include "UI/UIMessagesWindow.h"
-#include "UI/UIDialogWnd.h"
+#include "ui/UIGameTutorial.h"
+#include "ui/UIMessagesWindow.h"
+#include "ui/UIDialogWnd.h"
 #include "string_table.h"
 #include "game_cl_base_weapon_usage_statistic.h"
 #include "game_sv_mp_vote_flags.h"
+#include "xrNetServer/NET_Messages.h"
 
 EGameIDs ParseStringToGameType(LPCSTR str);
 LPCSTR GameTypeToString(EGameIDs gt, bool bShort);
@@ -160,7 +161,7 @@ void game_cl_GameState::net_import_state(NET_Packet& P)
             if (Type() != eGameIDSingle)
                 OnPlayerFlagsChanged(IP);
 
-            players.insert(mk_pair(ID, IP));
+            players.insert(std::make_pair(ID, IP));
             valid_players.push_back(ID);
         }
     }
@@ -212,11 +213,9 @@ void game_cl_GameState::net_import_update(NET_Packet& P)
 void game_cl_GameState::net_signal(NET_Packet& P) {}
 void game_cl_GameState::TranslateGameMessage(u32 msg, NET_Packet& P)
 {
-    CStringTable st;
-
     string512 Text;
-    char Color_Main[] = "%c[255,192,192,192]";
-    LPSTR Color_Teams[3] = {"%c[255,255,240,190]", "%c[255,64,255,64]", "%c[255,64,64,255]"};
+    constexpr char Color_Main[] = "%c[255,192,192,192]";
+    constexpr pcstr Color_Teams[3] = {"%c[255,255,240,190]", "%c[255,64,255,64]", "%c[255,64,64,255]"};
 
     switch (msg)
     {
@@ -224,7 +223,7 @@ void game_cl_GameState::TranslateGameMessage(u32 msg, NET_Packet& P)
     {
         ClientID newClientId;
         P.r_clientID(newClientId);
-        game_PlayerState* PS = NULL;
+        game_PlayerState* PS = nullptr;
         if (newClientId == local_svdpnid)
         {
             PS = local_player;
@@ -237,10 +236,10 @@ void game_cl_GameState::TranslateGameMessage(u32 msg, NET_Packet& P)
 
         if (Type() != eGameIDSingle)
         {
-            players.insert(mk_pair(newClientId, PS));
+            players.insert(std::make_pair(newClientId, PS));
             OnNewPlayerConnected(newClientId);
         }
-        xr_sprintf(Text, "%s%s %s%s", Color_Teams[0], PS->getName(), Color_Main, *st.translate("mp_connected"));
+        xr_sprintf(Text, "%s%s %s%s", Color_Teams[0], PS->getName(), Color_Main, *StringTable().translate("mp_connected"));
         if (CurrentGameUI())
             CurrentGameUI()->CommonMessageOut(Text);
         //---------------------------------------
@@ -252,7 +251,7 @@ void game_cl_GameState::TranslateGameMessage(u32 msg, NET_Packet& P)
         string64 PlayerName;
         P.r_stringZ(PlayerName);
 
-        xr_sprintf(Text, "%s%s %s%s", Color_Teams[0], PlayerName, Color_Main, *st.translate("mp_disconnected"));
+        xr_sprintf(Text, "%s%s %s%s", Color_Teams[0], PlayerName, Color_Main, *StringTable().translate("mp_disconnected"));
         if (CurrentGameUI())
             CurrentGameUI()->CommonMessageOut(Text);
         //---------------------------------------
@@ -264,7 +263,7 @@ void game_cl_GameState::TranslateGameMessage(u32 msg, NET_Packet& P)
         string64 PlayerName;
         P.r_stringZ(PlayerName);
 
-        xr_sprintf(Text, "%s%s %s%s", Color_Teams[0], PlayerName, Color_Main, *st.translate("mp_entered_game"));
+        xr_sprintf(Text, "%s%s %s%s", Color_Teams[0], PlayerName, Color_Main, *StringTable().translate("mp_entered_game"));
         if (CurrentGameUI())
             CurrentGameUI()->CommonMessageOut(Text);
     }

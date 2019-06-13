@@ -5,7 +5,7 @@
 //	Description : UI ActorMenu actions implementation
 ////////////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "UIActorMenu.h"
 #include "UIActorStateInfo.h"
 #include "Actor.h"
@@ -16,16 +16,16 @@
 #include "Common/object_broker.h"
 #include "UIInventoryUtilities.h"
 #include "game_cl_base.h"
-#include "UICursor.h"
+#include "xrUICore/Cursor/UICursor.h"
 #include "UICellItem.h"
 #include "UICharacterInfo.h"
 #include "UIItemInfo.h"
 #include "UIDragDropListEx.h"
 #include "UIInventoryUpgradeWnd.h"
-#include "UI3tButton.h"
-#include "UIBtnHint.h"
+#include "xrUICore/Buttons/UI3tButton.h"
+#include "xrUICore/Buttons/UIBtnHint.h"
 #include "UIMessageBoxEx.h"
-#include "UIPropertiesBox.h"
+#include "xrUICore/PropertiesBox/UIPropertiesBox.h"
 #include "UIMainIngameWnd.h"
 
 bool CUIActorMenu::AllowItemDrops(EDDListType from, EDDListType to)
@@ -143,8 +143,8 @@ bool CUIActorMenu::OnItemDrop(CUICellItem* itm)
 
     OnItemDropped(CurrentIItem(), new_owner, old_owner);
 
-    UpdateItemsPlace();
     UpdateConditionProgressBars();
+    UpdateItemsPlace();
 
     return true;
 }
@@ -157,6 +157,7 @@ bool CUIActorMenu::OnItemStartDrag(CUICellItem* itm)
 
 bool CUIActorMenu::OnItemDbClick(CUICellItem* itm)
 {
+    SetCurrentItem(itm);
     InfoCurItem(NULL);
     CUIDragDropListEx* old_owner = itm->OwnerList();
     EDDListType t_old = GetListType(old_owner);
@@ -191,14 +192,15 @@ bool CUIActorMenu::OnItemDbClick(CUICellItem* itm)
         {
             break;
         }
-        PIItem iitem_to_place = (PIItem)itm->m_pData;
-        if (!ToSlot(itm, false, iitem_to_place->BaseSlot()))
+        PIItem iitem_to_place = static_cast<PIItem>(itm->m_pData);
+        if (!m_pActorInvOwner->inventory().SlotIsPersistent(iitem_to_place->BaseSlot())
+            && m_pActorInvOwner->inventory().ItemFromSlot(iitem_to_place->BaseSlot()) == iitem_to_place)
         {
-            if (!ToBelt(itm, false))
-            {
-                ToSlot(itm, true, iitem_to_place->BaseSlot());
-            }
+            ToBag(itm, false);
         }
+        else if (!ToSlot(itm, false, iitem_to_place->BaseSlot()))
+            if (!ToBelt(itm, false))
+                ToSlot(itm, true, iitem_to_place->BaseSlot());
         break;
     }
     case iActorBelt:
@@ -232,8 +234,8 @@ bool CUIActorMenu::OnItemDbClick(CUICellItem* itm)
 
     }; // switch
 
-    UpdateItemsPlace();
     UpdateConditionProgressBars();
+    UpdateItemsPlace();
 
     return true;
 }

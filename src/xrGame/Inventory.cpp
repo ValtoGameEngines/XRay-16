@@ -1,25 +1,26 @@
 #include "pch_script.h"
-#include "inventory.h"
-#include "actor.h"
+#include "Inventory.h"
+#include "Actor.h"
 #include "CustomOutfit.h"
 #include "trade.h"
-#include "weapon.h"
+#include "Weapon.h"
 
 #include "ui/UIInventoryUtilities.h"
 #include "ui/UIActorMenu.h"
 
 #include "eatable_item.h"
 #include "xrScriptEngine/script_engine.hpp"
-#include "xrmessages.h"
+#include "xrMessages.h"
 #include "xr_level_controller.h"
 #include "Level.h"
 #include "ai_space.h"
-#include "entitycondition.h"
+#include "EntityCondition.h"
 #include "game_base_space.h"
-#include "uigamecustom.h"
+#include "UIGameCustom.h"
 #include "clsid_game.h"
 #include "static_cast_checked.hpp"
 #include "player_hud.h"
+#include "xrNetServer/NET_Messages.h"
 
 using namespace InventoryUtilities;
 
@@ -43,8 +44,17 @@ CInventory::CInventory()
 {
     m_fMaxWeight = pSettings->r_float("inventory", "max_weight");
 
-    u32 sz = pSettings->r_s32("inventory", "slots_count");
+    u16 sz;
+    const u16 tempSlotsCount = pSettings->r_s16("inventory", "slots_count");
+    if (tempSlotsCount > 0 && tempSlotsCount <= LAST_SLOT)
+        sz = tempSlotsCount + 1;
+    else
+    {
+        Log("! [inventory] slots_count is less than 1 or more than LAST_SLOT");
+        sz = 1;
+    }
     m_slots.resize(sz + 1); // first is [1]
+    m_iLastSlot = sz - 1;
 
     m_iActiveSlot = NO_ACTIVE_SLOT;
     m_iNextActiveSlot = NO_ACTIVE_SLOT;
@@ -54,10 +64,10 @@ CInventory::CInventory()
     for (u16 i = FirstSlot(); i <= LastSlot(); ++i)
     {
         xr_sprintf(temp, "slot_persistent_%d", i);
-        m_slots[i].m_bPersistent = !!pSettings->r_bool("inventory", temp);
+        m_slots[i].m_bPersistent = !!READ_IF_EXISTS(pSettings, r_bool, "inventory", temp, false); // !!pSettings->r_bool("inventory", temp); //Alundaio
 
         xr_sprintf(temp, "slot_active_%d", i);
-        m_slots[i].m_bAct = !!pSettings->r_bool("inventory", temp);
+        m_slots[i].m_bAct = !!READ_IF_EXISTS(pSettings, r_bool, "inventory", temp, false); // !!pSettings->r_bool("inventory", temp); //Alundaio
     };
 
     m_bSlotsUseful = true;
@@ -70,7 +80,7 @@ CInventory::CInventory()
     InitPriorityGroupsForQSwitch();
     m_next_item_iteration_time = 0;
 
-    for (u16 i = 0; i < LAST_SLOT + 1; ++i)
+    for (u16 i = 0; i < sz; ++i)
     {
         m_blocked_slots[i] = 0;
     }
@@ -316,11 +326,11 @@ bool CInventory::Slot(u16 slot_id, PIItem pIItem, bool bNotActivate, bool strict
 
     if (!strict_placement && !CanPutInSlot(pIItem, slot_id))
     {
-#ifdef _DEBUG
-        Msg("there is item %s[%d,%x] in slot %d[%d,%x]", ItemFromSlot(pIItem->GetSlot())->object().cName().c_str(),
-            ItemFromSlot(pIItem->GetSlot())->object().ID(), ItemFromSlot(pIItem->GetSlot()), pIItem->GetSlot(),
-            pIItem->object().ID(), pIItem);
-#endif
+//#ifdef _DEBUG
+        //Msg("there is item %s[%d,%x] in slot %d[%d,%x]", ItemFromSlot(pIItem->GetSlot())->object().cName().c_str(),
+        //    ItemFromSlot(pIItem->GetSlot())->object().ID(), ItemFromSlot(pIItem->GetSlot()), pIItem->GetSlot(),
+        //    pIItem->object().ID(), pIItem);
+//#endif
         //.		if(m_slots[pIItem->GetSlot()].m_pIItem == pIItem && !bNotActivate )
         //.			Activate(pIItem->GetSlot());
 
@@ -1037,7 +1047,7 @@ CInventoryItem* CInventory::get_object_by_id(ALife::_OBJECT_ID tObjectID)
 
 //скушать предмет
 #include "game_object_space.h"
-#include "script_callback_ex.h"
+#include "xrScriptEngine/script_callback_ex.h"
 #include "script_game_object.h"
 bool CInventory::Eat(PIItem pIItem)
 {
@@ -1070,14 +1080,26 @@ bool CInventory::Eat(PIItem pIItem)
         pItemToEat->object().cNameSect().c_str());
 #endif // MP_LOGGING
 
-    if (IsGameTypeSingle() && Actor()->m_inventory == this)
-        Actor()->callback(GameObject::eUseObject)((smart_cast<CGameObject*>(pIItem))->lua_game_object());
+    if (Actor()->m_inventory == this)
+    {
+        if (IsGameTypeSingle())
+            Actor()->callback(GameObject::eUseObject)(smart_cast<CGameObject*>(pIItem)->lua_game_object());
+
+        if (pItemToEat->IsUsingCondition() && pItemToEat->GetRemainingUses() < 1 && pItemToEat->CanDelete())
+            CurrentGameUI()->GetActorMenu().RefreshCurrentItemCell();
+
+        CurrentGameUI()->GetActorMenu().SetCurrentItem(nullptr);
+    }
+
 
     if (pItemToEat->Empty())
     {
-        pIItem->SetDropManual(TRUE);
-        return false;
+        if (!pItemToEat->CanDelete())
+            return false;
+
+        pIItem->SetDropManual(true);
     }
+
     return true;
 }
 
@@ -1191,7 +1213,7 @@ CInventoryItem* CInventory::tpfGetObjectByIndex(int iIndex)
     }
     else
     {
-        ai().script_engine().script_log(LuaMessageType::Error, "invalid inventory index!");
+        GEnv.ScriptEngine->script_log(LuaMessageType::Error, "invalid inventory index!");
         return (0);
     }
     R_ASSERT(false);
@@ -1302,6 +1324,11 @@ bool CInventory::isBeautifulForActiveSlot(CInventoryItem* pIItem)
     return (false);
 }
 
+void CInventory::InvalidateState() throw()
+{
+    m_dwModifyFrame = Device.dwFrame;
+}
+
 //.#include "WeaponHUD.h"
 void CInventory::Items_SetCurrentEntityHud(bool current_entity)
 {
@@ -1392,7 +1419,7 @@ void CInventory::TryDeactivateActiveSlot()
 
 void CInventory::BlockSlot(u16 slot_id)
 {
-    VERIFY(slot_id <= LAST_SLOT);
+    VERIFY(slot_id <= LastSlot());
 
     ++m_blocked_slots[slot_id];
 
@@ -1401,7 +1428,7 @@ void CInventory::BlockSlot(u16 slot_id)
 
 void CInventory::UnblockSlot(u16 slot_id)
 {
-    VERIFY(slot_id <= LAST_SLOT);
+    VERIFY(slot_id <= LastSlot());
     VERIFY2(m_blocked_slots[slot_id] > 0, make_string("blocked slot [%d] underflow").c_str());
 
     --m_blocked_slots[slot_id];
@@ -1409,7 +1436,7 @@ void CInventory::UnblockSlot(u16 slot_id)
 
 bool CInventory::IsSlotBlocked(u16 slot_id) const
 {
-    VERIFY(slot_id <= LAST_SLOT);
+    VERIFY(slot_id <= LastSlot());
     return m_blocked_slots[slot_id] > 0;
 }
 

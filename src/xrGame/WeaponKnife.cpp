@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "WeaponKnife.h"
 #include "Entity.h"
@@ -8,14 +8,17 @@
 #include "game_cl_base.h"
 #include "Include/xrRender/Kinematics.h"
 #include "xrEngine/GameMtlLib.h"
-#include "level_bullet_manager.h"
+#include "Level_Bullet_Manager.h"
 #include "ai_sounds.h"
 #include "game_cl_single.h"
 #include "xrCore/Animation/SkeletonMotions.hpp"
 #include "player_hud.h"
 #include "ActorEffector.h"
+#ifdef DEBUG
+#include <iterator>
+#endif
 
-#define KNIFE_MATERIAL_NAME "objects\\knife"
+#define KNIFE_MATERIAL_NAME "objects" DELIMITER "knife"
 
 #ifdef DEBUG
 #include "debug_renderer.h"
@@ -35,9 +38,20 @@ CWeaponKnife::CWeaponKnife()
     m_Hit1SplashRadius = 1.0f;
     m_Hit2SplashRadius = 1.0f;
 
-    m_Hit1SpashDir.set(0.f, 0.f, 1.f);
+    m_Hit1SpashDir.set(0.f, -0.3, 1.f);
     m_Hit2SpashDir.set(0.f, 0.f, 1.f);
+
+    m_Splash1HitsCount = 3;
+    m_Splash1PerVictimsHCount = 1;
+    m_Splash2HitsCount = 2;
+
+    m_NextHitDivideFactor = 0.75f;
 }
+
+enum class FieldTypes
+{
+    t_u32, t_float, t_fvector3
+};
 
 CWeaponKnife::~CWeaponKnife() {}
 void CWeaponKnife::Load(LPCSTR section)
@@ -48,34 +62,109 @@ void CWeaponKnife::Load(LPCSTR section)
     fWallmarkSize = pSettings->r_float(section, "wm_size");
     m_sounds.LoadSound(section, "snd_shoot", "sndShot", false, SOUND_TYPE_WEAPON_SHOOTING);
 
-    m_Hit1SpashDir = pSettings->r_fvector3(section, "splash1_direction");
-    m_Hit2SpashDir = pSettings->r_fvector3(section, "splash2_direction");
+    int successCount = 0;
+    string1024 missingFields;
 
-    m_Hit1Distance = pSettings->r_float(section, "spash1_dist");
-    m_Hit2Distance = pSettings->r_float(section, "spash2_dist");
+    // array of <name, fallbackName, type, variable>
+    constexpr u32 elementsCount = 10;
+    const xr_array<std::tuple<pcstr, pcstr, FieldTypes, void*>, elementsCount> fields =
+    {{
+        { "splash1_direction", nullptr, FieldTypes::t_fvector3, &m_Hit1SpashDir },
+        { "splash2_direction", nullptr, FieldTypes::t_fvector3, &m_Hit2SpashDir },
 
-    m_Hit1SplashRadius = pSettings->r_float(section, "spash1_radius");
-    m_Hit2SplashRadius = pSettings->r_float(section, "spash2_radius");
+        { "splash1_dist", "spash1_dist", FieldTypes::t_float, &m_Hit1Distance }, // We need those fallback names just because
+        { "splash2_dist", "spash2_dist", FieldTypes::t_float, &m_Hit2Distance }, // GSC was too lazy to fix the typos!!!
 
-    m_Splash1HitsCount = pSettings->r_u32(section, "splash1_hits_count");
-    m_Splash1PerVictimsHCount = pSettings->r_u32(section, "splash1_pervictim_hcount");
-    m_Splash2HitsCount = pSettings->r_u32(section, "splash2_hits_count");
+        { "splash1_radius", "spash1_radius", FieldTypes::t_float, &m_Hit1SplashRadius },
+        { "splash2_radius", "spash2_radius", FieldTypes::t_float, &m_Hit1SplashRadius },
+
+        { "splash1_hits_count", nullptr, FieldTypes::t_u32, &m_Splash1HitsCount },
+        { "splash1_pervictim_hcount", nullptr, FieldTypes::t_u32, &m_Splash1PerVictimsHCount },
+        { "splash2_hits_count", nullptr, FieldTypes::t_u32, &m_Splash2HitsCount },
+        { "splash_hit_divide_factor", nullptr, FieldTypes::t_float, &m_NextHitDivideFactor },
+    }};
+
+    const auto assertField = [&](pcstr name, pcstr /*fallback*/, FieldTypes /*type*/, void* outPtr)
+    {
+        R_ASSERT2(name && outPtr, "Some fields are missing or malformed");
+    };
+
+    for (const auto& field : fields)
+    {
+        std::apply(assertField, field);
+    }
+
+    const auto processField = [&](pcstr name, pcstr fallback, FieldTypes type, void* outPtr)
+    {
+        pcstr nameToRead = nullptr;
+        if (pSettings->line_exist(section, name))
+            nameToRead = name;
+        else if (fallback && pSettings->line_exist(section, fallback))
+            nameToRead = fallback;
+
+        if (!nameToRead)
+        {
+            if (xr_strlen(missingFields))
+                xr_strcat(missingFields, ", ");
+            xr_strcat(missingFields, name);
+            return;
+        }
+
+        switch (type)
+        {
+        case FieldTypes::t_u32:
+        {
+            u32* outValue = static_cast<u32*>(outPtr);
+            *outValue = pSettings->r_u32(section, nameToRead);
+            break;
+        }
+        case FieldTypes::t_float:
+        {
+            float* outValue = static_cast<float*>(outPtr);
+            *outValue = pSettings->r_float(section, nameToRead);
+            break;
+        }
+        case FieldTypes::t_fvector3:
+        {
+            Fvector3* outValue = static_cast<Fvector3*>(outPtr);
+            *outValue = pSettings->r_fvector3(section, nameToRead);
+            break;
+        }
+        }
+        successCount++;
+    };
+
+    for (const auto& field : fields)
+    {
+        std::apply(processField, field);
+    }
+
+    R_ASSERT4(successCount == elementsCount || successCount == 0,
+        "You need to provide all knife splash parameters or remove them all.",
+        "Missing fields are:", missingFields);
+
+    oldStrikeMethod = successCount == 0;
+
+    knife_material_idx = GMLib.GetMaterialIdx(KNIFE_MATERIAL_NAME);
+
 #ifdef DEBUG
     m_dbg_data.m_pick_vectors.reserve(std::max(m_Splash1HitsCount, m_Splash2HitsCount));
 #endif
-    m_NextHitDivideFactor = pSettings->r_float(section, "splash_hit_divide_factor");
-
-    knife_material_idx = GMLib.GetMaterialIdx(KNIFE_MATERIAL_NAME);
 }
 
-void CWeaponKnife::OnStateSwitch(u32 S)
+void CWeaponKnife::OnStateSwitch(u32 S, u32 oldState)
 {
-    inherited::OnStateSwitch(S);
+    inherited::OnStateSwitch(S, oldState);
     switch (S)
     {
     case eIdle: switch2_Idle(); break;
     case eShowing: switch2_Showing(); break;
-    case eHiding: switch2_Hiding(); break;
+    case eHiding:
+    {
+        if (oldState != eHiding)
+            switch2_Hiding();
+        break;
+    }
     case eHidden: switch2_Hidden(); break;
     case eFire:
     {
@@ -132,6 +221,12 @@ void CWeaponKnife::OnStateSwitch(u32 S)
 
 void CWeaponKnife::KnifeStrike(const Fvector& pos, const Fvector& dir)
 {
+    if (oldStrikeMethod)
+    {
+        MakeShot(pos, dir);
+        return;
+    }
+
     IGameObject* real_victim = TryPick(pos, dir, m_hit_dist);
     if (real_victim)
     {
@@ -192,31 +287,39 @@ void CWeaponKnife::MakeShot(Fvector const& pos, Fvector const& dir, float const 
 void CWeaponKnife::OnMotionMark(u32 state, const motion_marks& M)
 {
     inherited::OnMotionMark(state, M);
-    if (state == eFire)
+    switch (state)
     {
+    case eFire:
+    {
+        if (oldStrikeMethod)
+            break;
         m_hit_dist = m_Hit1Distance;
         m_splash_dir = m_Hit1SpashDir;
         m_splash_radius = m_Hit1SplashRadius;
         m_hits_count = m_Splash1HitsCount;
         m_perv_hits_count = m_Splash1PerVictimsHCount;
+        fireDistance = m_hit_dist + m_splash_radius;
+        break;
     }
-    else if (state == eFire2)
+    case eFire2:
     {
+        if (oldStrikeMethod)
+            break;
         m_hit_dist = m_Hit2Distance;
         m_splash_dir = m_Hit2SpashDir;
         m_splash_radius = m_Hit2SplashRadius;
         m_hits_count = m_Splash2HitsCount;
         m_perv_hits_count = 0;
+        fireDistance = m_hit_dist + m_splash_radius;
+        break;
     }
-    else
-    {
+    default:
         return;
     }
 
     Fvector p1, d;
     p1.set(get_LastFP());
     d.set(get_LastFD());
-    fireDistance = m_hit_dist + m_splash_radius;
 
     if (H_Parent())
     {

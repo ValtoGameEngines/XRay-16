@@ -1,26 +1,26 @@
 #include "pch_script.h"
-#include "actorcondition.h"
-#include "actor.h"
-#include "actorEffector.h"
-#include "inventory.h"
+#include "ActorCondition.h"
+#include "Actor.h"
+#include "ActorEffector.h"
+#include "Inventory.h"
 #include "Level.h"
-#include "sleepeffector.h"
+#include "SleepEffector.h"
 #include "game_base_space.h"
 #include "autosave_manager.h"
-#include "xrserver.h"
+#include "xrServer.h"
 #include "ai_space.h"
-#include "script_callback_ex.h"
+#include "xrScriptEngine/script_callback_ex.h"
 #include "script_game_object.h"
 #include "game_object_space.h"
-#include "script_callback_ex.h"
+#include "xrScriptEngine/script_callback_ex.h"
 #include "Common/object_broker.h"
-#include "weapon.h"
+#include "Weapon.h"
 
 #include "PDA.h"
 #include "ai/monsters/basemonster/base_monster.h"
 #include "UIGameCustom.h"
 #include "ui/UIMainIngameWnd.h"
-#include "ui/UIStatic.h"
+#include "xrUICore/Static/UIStatic.h"
 
 #define MAX_SATIETY 1.0f
 #define START_SATIETY 0.5f
@@ -123,9 +123,9 @@ void CActorCondition::LoadCondition(LPCSTR entity_section)
     m_zone_max_power[ALife::infl_psi] = pSettings->r_float(section, "psi_zone_max_power");
     m_zone_max_power[ALife::infl_electra] = pSettings->r_float(section, "electra_zone_max_power");
 
-    m_max_power_restore_speed = pSettings->r_float(section, "max_power_restore_speed");
-    m_max_wound_protection = READ_IF_EXISTS(pSettings, r_float, section, "max_wound_protection", 1.0f);
-    m_max_fire_wound_protection = READ_IF_EXISTS(pSettings, r_float, section, "max_fire_wound_protection", 1.0f);
+    m_max_power_restore_speed = pSettings->read_if_exists<float>(section, "max_power_restore_speed", 1.0f);
+    m_max_wound_protection = pSettings->read_if_exists<float>(section, "max_wound_protection", 1.0f);
+    m_max_fire_wound_protection = pSettings->read_if_exists<float>(section, "max_fire_wound_protection", 1.0f);
 
     VERIFY(!fis_zero(m_zone_max_power[ALife::infl_rad]));
     VERIFY(!fis_zero(m_zone_max_power[ALife::infl_fire]));
@@ -212,7 +212,7 @@ void CActorCondition::UpdateCondition()
         if (true)
         {
             k_max_power =
-                1.0f + _min(cur_weight, base_weight) / base_weight + _max(0.0f, (cur_weight - base_weight) / 10.0f);
+                1.0f + std::min(cur_weight, base_weight) / base_weight + std::max(0.0f, (cur_weight - base_weight) / 10.0f);
         }
         else
         {
@@ -738,7 +738,7 @@ void CActorCondition::UpdateTutorialThresholds()
     if (!b)
     {
         luabind::functor<void> fl;
-        R_ASSERT(ai().script_engine().functor<void>(cb_name, fl));
+        R_ASSERT(GEnv.ScriptEngine->functor<void>(cb_name, fl));
         fl();
     }
 }

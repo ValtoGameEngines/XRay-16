@@ -1,5 +1,5 @@
-#include "stdafx.h"
-#include "ai/Monsters/Pseudodog/psy_dog.h"
+#include "StdAfx.h"
+#include "ai/monsters/pseudodog/psy_dog.h"
 #include "xrAICore/Navigation/level_graph.h"
 #include "ai_space.h"
 #include "alife_simulator.h"
@@ -7,21 +7,22 @@
 #include "xrServer.h"
 #include "xrAICore/Navigation/ai_object_location.h"
 #include "Level.h"
-#include "ai/Monsters/control_movement_base.h"
-#include "ai/Monsters/monster_velocity_space.h"
+#include "ai/monsters/control_movement_base.h"
+#include "ai/monsters/monster_velocity_space.h"
 #include "restricted_object.h"
 #include "Actor.h"
-#include "ai/Monsters/ai_monster_effector.h"
+#include "ai/monsters/ai_monster_effector.h"
 #include "ActorEffector.h"
-#include "ai/Monsters/Pseudodog/psy_dog_aura.h"
-#include "ai/Monsters/Pseudodog/psy_dog_state_manager.h"
+#include "ai/monsters/pseudodog/psy_dog_aura.h"
+#include "ai/monsters/pseudodog/psy_dog_state_manager.h"
 #include "alife_object_registry.h"
-#include "xrServerEntities/xrserver_objects_alife_monsters.h"
+#include "xrServerEntities/xrServer_Objects_ALife_Monsters.h"
+#include "xrNetServer/NET_Messages.h"
 
 CPsyDog::CPsyDog()
 {
     m_aura = new CPsyDogAura(this);
-    m_max_phantoms_count = NULL;
+    m_max_phantoms_count = 0;
     m_phantoms_die_time = NULL;
 }
 CPsyDog::~CPsyDog()
@@ -92,8 +93,10 @@ bool CPsyDog::spawn_phantom()
         return false;
 
     // set id to created server object
-    CSE_Abstract* phantom =
-        Level().spawn_item("psy_dog_phantom", ai().level_graph().vertex_position(node), node, 0xffff, true);
+    //Alundaio:
+    pcstr phantomSection = READ_IF_EXISTS(pSettings, r_string, this->get_section(), "phantom_section", "psy_dog_phantom");
+    CSE_Abstract* phantom = Level().spawn_item(phantomSection, ai().level_graph().vertex_position(node), node, 0xffff, true);
+    //Alundaio: END
     CSE_ALifeMonsterBase* pSE_Monster = smart_cast<CSE_ALifeMonsterBase*>(phantom);
     VERIFY(pSE_Monster);
 

@@ -1,11 +1,11 @@
-#include "stdafx.h"
-#include "telewhirlwind.h"
+#include "StdAfx.h"
+#include "TeleWhirlwind.h"
 #include "xrPhysics/PhysicsShell.h"
 #include "PhysicsShellHolder.h"
 #include "Level.h"
-#include "hit.h"
-#include "phdestroyable.h"
-#include "xrmessages.h"
+#include "Hit.h"
+#include "PHDestroyable.h"
+#include "xrMessages.h"
 #include "Include/xrRender/Kinematics.h"
 #include "Include/xrRender/KinematicsAnimated.h"
 
@@ -45,10 +45,15 @@ void CTeleWhirlwind::draw_out_impact(Fvector& dir, float& val)
 {
     VERIFY2(m_saved_impacts.size(), "NO IMPACTS ADDED!");
 
+    if (m_saved_impacts.empty())
+        return;
+
     dir.set(m_saved_impacts[0].force);
     val = dir.magnitude();
-    if (!fis_zero(val))
-        dir.mul(1.f / val);
+
+    // Swartz
+    //if (!fis_zero(val))
+    //    dir.mul(1.f / val);
     m_saved_impacts.erase(m_saved_impacts.begin());
 }
 

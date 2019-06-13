@@ -1,6 +1,9 @@
 #pragma once
 #include "xr_level_controller.h"
-#include <xrScriptEngine/Functor.hpp>
+#include "xrEngine/pure.h"
+#include "xrEngine/IInputReceiver.h"
+#include "xrScriptEngine/Functor.hpp"
+#include "xrCommon/xr_deque.h"
 
 class CUIWindow;
 class CUIStatic;
@@ -44,7 +47,7 @@ public:
     virtual void IR_OnKeyboardRelease(int dik);
     virtual void IR_OnKeyboardHold(int dik);
 
-    virtual void IR_OnMouseWheel(int direction);
+    virtual void IR_OnMouseWheel(int x, int y);
     virtual void IR_OnActivate(void);
     bool Persistent() { return !!m_flags.test(etsPersistent); }
     fastdelegate::FastDelegate0<> m_on_destroy_event;
@@ -117,11 +120,10 @@ class CUISequenceSimpleItem : public CUISequenceItem
         float m_length;
         bool m_visible;
 
-    public:
         virtual void Start();
         virtual void Stop();
     };
-    DEFINE_VECTOR(SSubItem, SubItemVec, SubItemVecIt);
+    using SubItemVec = xr_vector<SSubItem>;
     SubItemVec m_subitems;
     struct SActionItem
     {

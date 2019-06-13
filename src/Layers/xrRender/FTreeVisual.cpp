@@ -23,7 +23,7 @@ void FTreeVisual::Load(const char* N, IReader* data, u32 dwFlags)
 {
     dxRender_Visual::Load(N, data, dwFlags);
 
-    D3DVERTEXELEMENT9* vFormat = NULL;
+    D3DVERTEXELEMENT9* vFormat = nullptr;
 
     // read vertices
     R_ASSERT(data->find_chunk(OGF_GCONTAINER));
@@ -37,7 +37,12 @@ void FTreeVisual::Load(const char* N, IReader* data, u32 dwFlags)
         VERIFY(NULL == p_rm_Vertices);
 
         p_rm_Vertices = RImplementation.getVB(ID);
+#ifdef USE_OGL
+        if (p_rm_Vertices)
+            bIsRefVertices = true;
+#else // USE_OGL
         p_rm_Vertices->AddRef();
+#endif // USE_OGL
 
         // indices
         dwPrimitives = 0;
@@ -48,7 +53,12 @@ void FTreeVisual::Load(const char* N, IReader* data, u32 dwFlags)
 
         VERIFY(NULL == p_rm_Indices);
         p_rm_Indices = RImplementation.getIB(ID);
+#ifdef USE_OGL
+        if (p_rm_Indices)
+            bIsRefIndices = true;
+#else // USE_OGL
         p_rm_Indices->AddRef();
+#endif // USE_OGL
     }
 
     // load tree-def
@@ -87,16 +97,27 @@ struct FTreeVisual_setup
     Fvector4 wave;
     Fvector4 wind;
 
-    FTreeVisual_setup() { dwFrame = 0; }
+    FTreeVisual_setup(): dwFrame(0), scale(0) {}
+
     void calculate()
     {
         dwFrame = Device.dwFrame;
 
+        const float tm_rot = PI_MUL_2 * Device.fTimeGlobal / ps_r__Tree_w_rot;
+
         // Calc wind-vector3, scale
-        float tm_rot = PI_MUL_2 * Device.fTimeGlobal / ps_r__Tree_w_rot;
+
         wind.set(_sin(tm_rot), 0, _cos(tm_rot), 0);
         wind.normalize();
+
+#if RENDER!=R_R1
+        CEnvDescriptor& env = *g_pGamePersistent->Environment().CurrentEnv;
+        float fValue = env.m_fTreeAmplitudeIntensity;
+        wind.mul(fValue); // dir1*amplitude
+#else
         wind.mul(ps_r__Tree_w_amp); // dir1*amplitude
+#endif
+
         scale = 1.f / float(FTreeVisual_quant);
 
         // setup constants
@@ -106,7 +127,7 @@ struct FTreeVisual_setup
     }
 };
 
-void FTreeVisual::Render(float LOD)
+void FTreeVisual::Render(float /*LOD*/)
 {
     static FTreeVisual_setup tvs;
     if (tvs.dwFrame != Device.dwFrame)
@@ -145,15 +166,25 @@ void FTreeVisual::Copy(dxRender_Visual* pSrc)
     PCOPY(rm_geom);
 
     PCOPY(p_rm_Vertices);
+#ifdef USE_OGL
+    if (p_rm_Vertices)
+        bIsRefVertices = true;
+#else // USE_OGL
     if (p_rm_Vertices)
         p_rm_Vertices->AddRef();
+#endif // USE_OGL
 
     PCOPY(vBase);
     PCOPY(vCount);
 
     PCOPY(p_rm_Indices);
+#ifdef USE_OGL
+    if (p_rm_Indices)
+        bIsRefIndices = true;
+#else // USE_OGL
     if (p_rm_Indices)
         p_rm_Indices->AddRef();
+#endif // USE_OGL
 
     PCOPY(iBase);
     PCOPY(iCount);
@@ -184,7 +215,7 @@ void FTreeVisual_ST::Copy(dxRender_Visual* pSrc) { inherited::Copy(pSrc); }
 //-----------------------------------------------------------------------------------
 FTreeVisual_PM::FTreeVisual_PM(void)
 {
-    pSWI = 0;
+    pSWI = nullptr;
     last_lod = 0;
 }
 FTreeVisual_PM::~FTreeVisual_PM(void) {}

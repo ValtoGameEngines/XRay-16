@@ -6,13 +6,15 @@
 //	Description : Space restriction
 ////////////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "space_restriction.h"
 #include "space_restriction_manager.h"
 #include "ai_space.h"
 #include "xrAICore/Navigation/level_graph.h"
 #include "space_restriction_base.h"
 #include "xrEngine/profiler.h"
+#include "xrCore/xrDebug_macros.h"
+#include "xrCore/buffer_vector.h"
 
 const float dependent_distance = 100.f;
 
@@ -281,7 +283,11 @@ void CSpaceRestriction::remove_border()
 u32 CSpaceRestriction::accessible_nearest(const Fvector& position, Fvector& result)
 {
     if (m_out_space_restriction)
-        return (m_out_space_restriction->accessible_nearest(this, position, result, true));
+    {
+#pragma TODO("Xottab_DUTY: investigate temporary fix!")
+        CSpaceRestriction* mutable_this = const_cast<CSpaceRestriction*> (this); // Xottab_DUTY: temporary fix to allow compilation. Thanks to Giperion
+        return (m_out_space_restriction->accessible_nearest(mutable_this, position, result, true));
+    }
 
     VERIFY(m_in_space_restriction);
     return (m_in_space_restriction->accessible_nearest(m_in_space_restriction, position, result, false));

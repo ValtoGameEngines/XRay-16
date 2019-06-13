@@ -1,6 +1,9 @@
 #include "pch.hpp"
 #include "script_lua_helper.hpp"
 #include "script_debugger.hpp"
+#if defined(LINUX)
+#include "SDL.h" // for xr_itoa
+#endif
 
 CDbgLuaHelper* CDbgLuaHelper::m_pThis = nullptr;
 lua_State* CDbgLuaHelper::L = nullptr;
@@ -235,7 +238,7 @@ void CDbgLuaHelper::DrawStackTrace()
                 xr_strcat(szDesc, " ");
             }
             char szTmp[6];
-            xr_strcat(szDesc, itoa(ar.currentline, szTmp, 10));
+            xr_strcat(szDesc, xr_itoa(ar.currentline, szTmp, 10));
             xr_strcat(szDesc, " ");
             if (ar.short_src)
                 xr_strcat(szDesc, ar.short_src);

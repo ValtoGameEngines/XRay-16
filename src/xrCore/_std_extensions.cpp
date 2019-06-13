@@ -6,9 +6,6 @@
 #ifdef BREAK_AT_STRCMP
 int xr_strcmp(const char* S1, const char* S2)
 {
-#ifdef DEBUG_MEMORY_MANAGER
-    Memory.stat_strcmp++;
-#endif // DEBUG_MEMORY_MANAGER
     int res = (int)strcmp(S1, S2);
     return res;
 }
@@ -22,6 +19,7 @@ char* timestamp(string64& dest)
     * the operating system is queried to obtain the default value
     * for the variable.
     */
+#if defined(WINDOWS)
     _tzset();
     u32 it;
 
@@ -38,5 +36,6 @@ char* timestamp(string64& dest)
         if (':' == temp[it])
             temp[it] = '-';
     xr_strcat(dest, sizeof(dest), temp);
+#endif
     return dest;
 }

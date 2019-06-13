@@ -15,7 +15,7 @@
 
 #include "smap_allocator.h"
 #include "Layers/xrRender/light_db.h"
-#include "light_render_direct.h"
+#include "Layers/xrRender/light_render_direct.h"
 #include "Layers/xrRender/LightTrack.h"
 #include "Layers/xrRender/r_sun_cascades.h"
 
@@ -111,6 +111,7 @@ public:
         u32 forceskinw : 1;
         float forcegloss_v;
     } o;
+
     struct RenderR4Statistics
     {
         u32 l_total;
@@ -176,7 +177,7 @@ public:
     light_Package LP_normal;
     light_Package LP_pending;
 
-    xr_vector<Fbox3, render_alloc<Fbox3>> main_coarse_structure;
+    xr_vector<Fbox3> main_coarse_structure;
 
     shared_str c_sbase;
     shared_str c_lmaterial;
@@ -192,7 +193,7 @@ public:
 
 private:
     // Loading / Unloading
-    void LoadBuffers(CStreamReader* fs, BOOL _alternative);
+    void LoadBuffers(CStreamReader* fs, bool alternative);
     void LoadVisuals(IReader* fs);
     void LoadLights(IReader* fs);
     void LoadPortals(IReader* fs);
@@ -225,9 +226,9 @@ public:
 public:
     ShaderElement* rimp_select_sh_static(dxRender_Visual* pVisual, float cdist_sq);
     ShaderElement* rimp_select_sh_dynamic(dxRender_Visual* pVisual, float cdist_sq);
-    D3DVERTEXELEMENT9* getVB_Format(int id, BOOL _alt = FALSE);
-    ID3DVertexBuffer* getVB(int id, BOOL _alt = FALSE);
-    ID3DIndexBuffer* getIB(int id, BOOL _alt = FALSE);
+    D3DVERTEXELEMENT9* getVB_Format(int id, bool alternative = false);
+    ID3DVertexBuffer* getVB(int id, bool alternative = false);
+    ID3DIndexBuffer* getIB(int id, bool alternative = false);
     FSlideWindowItem* getSWI(int id);
     IRender_Portal* getPortal(int id);
     IRender_Sector* getSectorActive();
@@ -236,26 +237,28 @@ public:
     int translateSector(IRender_Sector* pSector);
 
     // HW-occlusion culling
-    IC u32 occq_begin(u32& ID) { return HWOCC.occq_begin(ID); }
-    IC void occq_end(u32& ID) { HWOCC.occq_end(ID); }
-    IC R_occlusion::occq_result occq_get(u32& ID) { return HWOCC.occq_get(ID); }
+    u32 occq_begin(u32& ID) { return HWOCC.occq_begin(ID); }
+    void occq_end(u32& ID) { HWOCC.occq_end(ID); }
+    R_occlusion::occq_result occq_get(u32& ID) { return HWOCC.occq_get(ID); }
+
     ICF void apply_object(IRenderable* O)
     {
-        if (0 == O)
+        if (!O)
             return;
-        if (0 == O->renderable_ROS())
+        if (!O->renderable_ROS())
             return;
-        CROS_impl& LT = *((CROS_impl*)O->renderable_ROS());
+        CROS_impl& LT = *static_cast<CROS_impl*>(O->renderable_ROS());
         LT.update_smooth(O);
         o_hemi = 0.75f * LT.get_hemi();
         // o_hemi						= 0.5f*LT.get_hemi			()	;
         o_sun = 0.75f * LT.get_sun();
         CopyMemory(o_hemi_cube, LT.get_hemi_cube(), CROS_impl::NUM_FACES * sizeof(float));
     }
-    IC void apply_lmaterial()
+    
+    void apply_lmaterial()
     {
         R_constant* C = &*RCache.get_c(c_sbase); // get sampler
-        if (0 == C)
+        if (!C)
             return;
         VERIFY(RC_dest_sampler == C->destination);
         VERIFY(RC_dx10texture == C->type);
@@ -288,12 +291,12 @@ public:
     virtual void level_Unload();
 
     ID3DBaseTexture* texture_load(LPCSTR fname, u32& msize, bool bStaging = false);
-    virtual HRESULT shader_compile(LPCSTR name, DWORD const* pSrcData, UINT SrcDataLen, LPCSTR pFunctionName,
-        LPCSTR pTarget, DWORD Flags, void*& result);
+    virtual HRESULT shader_compile(
+        LPCSTR name, IReader* fs, LPCSTR pFunctionName, LPCSTR pTarget, DWORD Flags, void*& result);
 
     // Information
     virtual void DumpStatistics(class IGameFont& font, class IPerformanceAlert* alert) override;
-    virtual LPCSTR getShaderPath() { return "r3\\"; }
+    virtual LPCSTR getShaderPath() { return "r3" DELIMITER ""; }
     virtual ref_shader getShader(int id);
     virtual IRender_Sector* getSector(int id);
     virtual IRenderVisual* getVisual(int id);
@@ -348,6 +351,8 @@ public:
     virtual BOOL occ_visible(sPoly& P);
 
     // Main
+    void BeforeFrame() override;
+
     virtual void Calculate();
     virtual void Render();
     virtual void Screenshot(ScreenshotMode mode = SM_NORMAL, LPCSTR name = 0);
@@ -356,10 +361,15 @@ public:
     virtual void ScreenshotAsyncEnd(CMemoryWriter& memory_writer);
     virtual void OnFrame();
 
+    void BeforeWorldRender() override; //--#SM+#-- +SecondVP+ Вызывается перед началом рендера мира и пост-эффектов
+    void AfterWorldRender() override;  //--#SM+#-- +SecondVP+ Вызывается после рендера мира и перед UI
+
     // Render mode
     virtual void rmNear();
     virtual void rmFar();
     virtual void rmNormal();
+
+    u32 active_phase() override { return phase; }
 
     // Constructor/destructor/loader
     CRender();
@@ -367,6 +377,7 @@ public:
 
     void addShaderOption(const char* name, const char* value);
     void clearAllShaderOptions() { m_ShaderOptions.clear(); }
+
 private:
     xr_vector<D3D_SHADER_MACRO> m_ShaderOptions;
 

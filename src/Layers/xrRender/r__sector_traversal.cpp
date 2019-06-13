@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "xrEngine/IGame_Persistent.h"
 #include "xrEngine/Environment.h"
-#include "fvf.h"
+#include "FVF.h"
 
 CPortalTraverser PortalTraverser;
 
@@ -53,7 +53,7 @@ void CPortalTraverser::traverse(IRender_Sector* start, CFrustum& F, Fvector& vBa
     }
 }
 
-void CPortalTraverser::fade_portal(CPortal* _p, float ssa) { f_portals.push_back(mk_pair(_p, ssa)); }
+void CPortalTraverser::fade_portal(CPortal* _p, float ssa) { f_portals.push_back(std::make_pair(_p, ssa)); }
 void CPortalTraverser::initialize()
 {
     f_shader.create("portal");

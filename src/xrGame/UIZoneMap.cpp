@@ -1,14 +1,14 @@
-#include "stdafx.h"
-#include "uizonemap.h"
+#include "StdAfx.h"
+#include "UIZoneMap.h"
 
 #include "InfoPortion.h"
-#include "Pda.h"
+#include "PDA.h"
 
 #include "Grenade.h"
 #include "Level.h"
 #include "game_cl_base.h"
 
-#include "actor.h"
+#include "Actor.h"
 #include "ai_space.h"
 #include "xrAICore/Navigation/game_graph.h"
 
@@ -18,26 +18,36 @@
 #include "ui/UIInventoryUtilities.h"
 //////////////////////////////////////////////////////////////////////////
 
-CUIZoneMap::CUIZoneMap() : m_current_map_idx(u8(-1)), visible(true) {}
+CUIZoneMap::CUIZoneMap() : m_current_map_idx(u8(-1)), visible(true)
+{
+    m_clock_wnd = nullptr;
+    m_pointerDistanceText = nullptr;
+}
+
 CUIZoneMap::~CUIZoneMap() {}
+
 void CUIZoneMap::Init()
 {
     CUIXml uiXml;
-    uiXml.Load(CONFIG_PATH, UI_PATH, "zone_map.xml");
+    uiXml.Load(CONFIG_PATH, UI_PATH, UI_PATH_DEFAULT, "zone_map.xml");
 
-    CUIXmlInit xml_init;
-    xml_init.InitStatic(uiXml, "minimap:background", 0, &m_background);
-    xml_init.InitWindow(uiXml, "minimap:level_frame", 0, &m_clipFrame);
-    xml_init.InitStatic(uiXml, "minimap:center", 0, &m_center);
+    CUIXmlInit::InitStatic(uiXml, "minimap:background", 0, &m_background);
+    CUIXmlInit::InitWindow(uiXml, "minimap:level_frame", 0, &m_clipFrame);
+    CUIXmlInit::InitStatic(uiXml, "minimap:center", 0, &m_center);
 
-    m_clock_wnd = UIHelper::CreateStatic(uiXml, "minimap:clock_wnd", &m_background);
+    m_clock_wnd = UIHelper::CreateStatic(uiXml, "minimap:clock_wnd", &m_background, false);
+
+    if (IsGameTypeSingle())
+    {
+        m_pointerDistanceText = UIHelper::CreateStatic(uiXml, "minimap:background:dist_text", &m_background, false);
+    }
 
     m_activeMap = new CUIMiniMap();
     m_clipFrame.AttachChild(m_activeMap);
     m_activeMap->SetAutoDelete(true);
 
     m_activeMap->EnableHeading(true);
-    xml_init.InitStatic(uiXml, "minimap:compass", 0, &m_compass);
+    CUIXmlInit::InitStatic(uiXml, "minimap:compass", 0, &m_compass);
     m_background.AttachChild(&m_compass);
 
     m_clipFrame.AttachChild(&m_center);
@@ -76,15 +86,18 @@ void CUIZoneMap::Init()
     rel_pos.mul(m_background.GetWndSize());
     m_compass.SetWndPos(rel_pos);
 
-    rel_pos = m_clock_wnd->GetWndPos();
-    rel_pos.mul(m_background.GetWndSize());
-    m_clock_wnd->SetWndPos(rel_pos);
+    if (m_clock_wnd)
+    {
+        rel_pos = m_clock_wnd->GetWndPos();
+        rel_pos.mul(m_background.GetWndSize());
+        m_clock_wnd->SetWndPos(rel_pos);
+    }
 
     if (IsGameTypeSingle())
     {
-        xml_init.InitStatic(uiXml, "minimap:static_counter", 0, &m_Counter);
+        CUIXmlInit::InitStatic(uiXml, "minimap:static_counter", 0, &m_Counter);
         m_background.AttachChild(&m_Counter);
-        xml_init.InitTextWnd(uiXml, "minimap:static_counter:text_static", 0, &m_Counter_text);
+        CUIXmlInit::InitTextWnd(uiXml, "minimap:static_counter:text_static", 0, &m_Counter_text);
         m_Counter.AttachChild(&m_Counter_text);
 
         rel_pos = m_Counter.GetWndPos();
@@ -130,8 +143,11 @@ void CUIZoneMap::Update()
     Device.vCameraDirection.getHP(h, p);
     SetHeading(-h);
 
-    m_clock_wnd->TextItemControl()->SetText(
-        InventoryUtilities::GetGameTimeAsString(InventoryUtilities::etpTimeToMinutes).c_str());
+    if (m_clock_wnd)
+    {
+        m_clock_wnd->TextItemControl()->SetText(
+            InventoryUtilities::GetGameTimeAsString(InventoryUtilities::etpTimeToMinutes).c_str());
+    }
 }
 
 void CUIZoneMap::SetHeading(float angle)
@@ -145,13 +161,27 @@ void CUIZoneMap::UpdateRadar(Fvector pos)
     m_clipFrame.Update();
     m_background.Update();
     m_activeMap->SetActivePoint(pos);
+
+    if (m_pointerDistanceText)
+    {
+        if (m_activeMap->GetPointerDistance() > 0.5f)
+        {
+            string64 str;
+            xr_sprintf(str, "%.0f m", m_activeMap->GetPointerDistance());
+            m_pointerDistanceText->SetText(str);
+        }
+        else
+        {
+            m_pointerDistanceText->SetText("");
+        }
+    }
 }
 
 bool CUIZoneMap::ZoomIn() { return true; }
 bool CUIZoneMap::ZoomOut() { return true; }
 void CUIZoneMap::SetupCurrentMap()
 {
-    m_activeMap->Initialize(Level().name(), "hud\\default");
+    m_activeMap->Initialize(Level().name(), "hud" DELIMITER "default");
 
     Frect r;
     m_clipFrame.GetAbsoluteRect(r);

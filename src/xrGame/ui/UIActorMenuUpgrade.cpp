@@ -11,7 +11,7 @@
 #include "Inventory.h"
 #include "Actor.h"
 #include "UIGameSP.h"
-#include "UI3tButton.h"
+#include "xrUICore/Buttons/UI3tButton.h"
 #include "inventory_upgrade.h"
 #include "UITalkWnd.h"
 
@@ -20,7 +20,8 @@ void CUIActorMenu::InitUpgradeMode()
     m_PartnerCharacterInfo->Show(true);
     m_PartnerMoney->Show(false);
     m_pUpgradeWnd->Show(true);
-    m_pQuickSlot->Show(true);
+    if (m_pQuickSlot)
+        m_pQuickSlot->Show(true);
 
     InitInventoryContents(m_pInventoryBagList);
     VERIFY(m_pPartnerInvOwner);

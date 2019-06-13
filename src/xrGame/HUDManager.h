@@ -5,6 +5,7 @@
 
 class CHUDTarget;
 class CUIGameCustom;
+namespace collide { struct rq_result; }
 
 class CHUDManager : public CCustomHUD
 {
@@ -25,6 +26,8 @@ public:
     virtual void Render_First();
     virtual void Render_Last();
     virtual void OnFrame();
+
+    void Render_Actor_Shadow() override; // added by KD
 
     virtual void RenderUI();
 
@@ -48,7 +51,8 @@ public:
     void SetHitmarkType(LPCSTR tex_name);
     void SetGrenadeMarkType(LPCSTR tex_name);
 
-    virtual void OnScreenResolutionChanged();
+    void OnUIReset() override;
+
     virtual void Load();
     virtual void OnDisconnected();
     virtual void OnConnected();

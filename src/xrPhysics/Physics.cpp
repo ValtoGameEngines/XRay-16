@@ -1,4 +1,7 @@
 #include "StdAfx.h"
+
+#include <limits>
+
 #include "PHDynamicData.h"
 #include "Physics.h"
 #include "tri-colliderknoopc/dTriList.h"
@@ -10,19 +13,18 @@
 #include "debug_output.h"
 #endif
 ///////////////////////////////////////////////////////////////
+#pragma warning(push)
 #pragma warning(disable : 4995)
 #pragma warning(disable : 4267)
-#include "Externals/ode/ode/src/collision_kernel.h"
-#include "Externals/ode/ode/src/joint.h"
-#include "Externals/ode/ode/src/objects.h"
-#pragma warning(default : 4267)
-#pragma warning(default : 4995)
+#include "ode/ode/src/collision_kernel.h"
+#include "ode/ode/src/joint.h"
+#include "ode/ode/src/objects.h"
+#pragma warning(pop)
 
 extern CPHWorld* ph_world;
 ///////////////////////////////////////////////////////////////////
 
 #include "ExtendedGeom.h"
-// union dInfBytes dInfinityValue = {{0,0,0x80,0x7f}};
 // PhysicsStepTimeCallback		*physics_step_time_callback				= 0;
 
 const float default_w_limit = 9.8174770f; //(M_PI/16.f/(fixed_step=0.02f));
@@ -207,8 +209,8 @@ IC static int CollideIntoGroup(
         if (flags_1.test(SGameMtl::flBounceable) && flags_2.test(SGameMtl::flBounceable))
         {
             surface.mode |= dContactBounce;
-            surface.bounce_vel = _max(material_1->fPHBounceStartVelocity, material_2->fPHBounceStartVelocity);
-            surface.bounce = _min(material_1->fPHBouncing, material_2->fPHBouncing);
+            surface.bounce_vel = std::max(material_1->fPHBounceStartVelocity, material_2->fPHBounceStartVelocity);
+            surface.bounce = std::min(material_1->fPHBouncing, material_2->fPHBouncing);
         }
         /////////////////////////////////////////////////////////////////////////////////////////////////
         if (usr_data_2 && usr_data_2->object_callbacks)
@@ -248,7 +250,8 @@ IC static int CollideIntoGroup(
         }
 
         if (pushing_neg)
-            surface.mu = dInfinity;
+            surface.mu = std::numeric_limits<dReal>::max();
+
         if (do_collide && collided_contacts < MAX_CONTACTS)
         {
             ++collided_contacts;
@@ -418,12 +421,12 @@ void BodyCutForce(dBodyID body, float l_limit, float w_limit)
     dMatrix3 tmp, invI, I;
 
     // compute inertia tensor in global frame
-    dMULTIPLY2_333(tmp, m.I, body->R);
-    dMULTIPLY0_333(I, body->R, tmp);
+    dMULTIPLY2_333(tmp, m.I, body->posr.R);
+    dMULTIPLY0_333(I, body->posr.R, tmp);
 
     // compute inverse inertia tensor in global frame
-    dMULTIPLY2_333(tmp, body->invI, body->R);
-    dMULTIPLY0_333(invI, body->R, tmp);
+    dMULTIPLY2_333(tmp, body->invI, body->posr.R);
+    dMULTIPLY0_333(invI, body->posr.R, tmp);
 
     // angular accel
     dVector3 wa;

@@ -4,63 +4,75 @@
 #include <time.h>
 #include "resource.h"
 #include "log.h"
-#ifdef _EDITOR
-#include "malloc.h"
-#endif
+#include "xrCore/Threading/Lock.hpp"
 
-extern BOOL LogExecCB = TRUE;
-static string_path logFName = "engine.log";
-static string_path log_file_name = "engine.log";
-static BOOL no_log = TRUE;
+BOOL LogExecCB = TRUE;
+string_path logFName = "engine.log";
+string_path log_file_name = "engine.log";
+BOOL no_log = TRUE;
 #ifdef CONFIG_PROFILE_LOCKS
-static Lock logCS(MUTEX_PROFILE_ID(log));
+Lock logCS(MUTEX_PROFILE_ID(log));
 #else // CONFIG_PROFILE_LOCKS
-static Lock logCS;
+Lock logCS;
 #endif // CONFIG_PROFILE_LOCKS
-xr_vector<shared_str>* LogFile = NULL;
-static LogCallback LogCB = 0;
+xr_vector<xr_string> LogFile;
+LogCallback LogCB = 0;
+
+bool ForceFlushLog = false;
+IWriter* LogWriter = nullptr;
+size_t CachedLog = 0;
 
 void FlushLog()
 {
     if (!no_log)
     {
         logCS.Enter();
-        IWriter* f = FS.w_open(logFName);
-        if (f)
-        {
-            for (u32 it = 0; it < LogFile->size(); it++)
-            {
-                LPCSTR s = *((*LogFile)[it]);
-                f->w_string(s ? s : "");
-            }
-            FS.w_close(f);
-        }
+        if (LogWriter)
+            LogWriter->flush();
+        CachedLog = 0;
         logCS.Leave();
     }
 }
 
 void AddOne(const char* split)
 {
-    if (!LogFile)
-        return;
-
     logCS.Enter();
 
-#ifdef DEBUG
     OutputDebugString(split);
     OutputDebugString("\n");
-#endif
 
-    // DUMP_PHASE;
-    {
-        shared_str temp = shared_str(split);
-        // DUMP_PHASE;
-        LogFile->push_back(temp);
-    }
+    LogFile.push_back(split);
 
     // exec CallBack
     if (LogExecCB && LogCB)
         LogCB(split);
+
+    if (LogWriter)
+    {
+#ifdef USE_LOG_TIMING
+        char buf[64];
+        char curTime[64];
+
+        auto now = std::chrono::system_clock::now();
+        auto time = std::chrono::system_clock::to_time_t(now);
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) -
+            std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch());
+
+        std::strftime(buf, sizeof(buf), "%H:%M:%S", std::localtime(&time));
+        int len = xr_sprintf(curTime, 64, "[%s.%03lld] ", buf, ms.count());
+
+        LogWriter->w_printf("%s%s\r\n", curTime, split);
+        CachedLog += len;
+#else
+        LogWriter->w_printf("%s\r\n", split);
+#endif
+        CachedLog += xr_strlen(split) + 2;
+
+        if (ForceFlushLog || CachedLog >= 32768)
+            FlushLog();
+
+        //-RvP
+    }
 
     logCS.Leave();
 }
@@ -132,6 +144,15 @@ void Log(const char* msg, u32 dop)
     Log(buf);
 }
 
+void Log(const char* msg, u64 dop)
+{
+    u32 buffer_size = (xr_strlen(msg) + 1 + 64 + 1) * sizeof(char);
+    PSTR buf = (PSTR)_alloca(buffer_size);
+
+    xr_sprintf(buf, buffer_size, "%s %d", msg, dop);
+    Log(buf);
+}
+
 void Log(const char* msg, int dop)
 {
     u32 buffer_size = (xr_strlen(msg) + 1 + 11 + 1) * sizeof(char);
@@ -181,34 +202,53 @@ LogCallback SetLogCB(const LogCallback& cb)
 }
 
 LPCSTR log_name() { return (log_file_name); }
-void InitLog()
-{
-    R_ASSERT(LogFile == NULL);
-    LogFile = new xr_vector<shared_str>();
-    LogFile->reserve(1000);
-}
 
 void CreateLog(BOOL nl)
 {
+    LogFile.reserve(1000);
+
     no_log = nl;
     strconcat(sizeof(log_file_name), log_file_name, Core.ApplicationName, "_", Core.UserName, ".log");
     if (FS.path_exist("$logs$"))
         FS.update_path(logFName, "$logs$", log_file_name);
     if (!no_log)
     {
-        IWriter* f = FS.w_open(logFName);
-        if (f == NULL)
+        // Alun: Backup existing log
+        xr_string backup_logFName = EFS.ChangeFileExt(logFName, ".bkp");
+        FS.file_rename(logFName, backup_logFName.c_str(), true);
+        //-Alun
+
+        LogWriter = FS.w_open(logFName);
+        if (LogWriter == nullptr)
         {
+#if defined(WINDOWS)
             MessageBox(NULL, "Can't create log file.", "Error", MB_ICONERROR);
+#endif
             abort();
         }
-        FS.w_close(f);
+        
+        time_t t = time(NULL);
+        tm* ti = localtime(&t);
+        char buf[64];
+        strftime(buf, 64, "[%x %X]\t", ti);
+
+        for (u32 it = 0; it < LogFile.size(); it++)
+        {
+            LPCSTR s = LogFile[it].c_str();
+            LogWriter->w_printf("%s%s\n", buf, s ? s : "");
+        }
+        LogWriter->flush();
     }
+
+    if (strstr(Core.Params, "-force_flushlog"))
+        ForceFlushLog = true;
 }
 
 void CloseLog(void)
 {
     FlushLog();
-    LogFile->clear();
-    xr_delete(LogFile);
+    if (LogWriter)
+        FS.w_close(LogWriter);
+    
+    LogFile.clear();
 }

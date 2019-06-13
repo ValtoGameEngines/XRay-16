@@ -18,14 +18,22 @@
 
 IRender_Mesh::~IRender_Mesh()
 {
+#ifdef USE_OGL
+    if (p_rm_Vertices && !bIsRefVertices)
+        glDeleteBuffers(1, &p_rm_Vertices);
+    if (p_rm_Indices && !bIsRefIndices)
+        glDeleteBuffers(1, &p_rm_Indices);
+#else // USE_OGL
     _RELEASE(p_rm_Vertices);
     _RELEASE(p_rm_Indices);
+#endif // USE_OGL
+    rm_geom.destroy();
 }
 
 dxRender_Visual::dxRender_Visual()
 {
     Type = 0;
-    shader = 0;
+    shader = nullptr;
     vis.clear();
 }
 
@@ -46,7 +54,7 @@ void dxRender_Visual::Load(const char* N, IReader* data, u32)
     {
         R_ASSERT2(hdr.format_version == xrOGF_FormatVersion, "Invalid visual version");
         Type = hdr.type;
-        // if (hdr.shader_id)	shader	= GlobalEnv.Render->getShader	(hdr.shader_id);
+        // if (hdr.shader_id)	shader	= GEnv.Render->getShader	(hdr.shader_id);
         if (hdr.shader_id)
             shader = ::RImplementation.getShader(hdr.shader_id);
         vis.box.set(hdr.bb.min, hdr.bb.max);

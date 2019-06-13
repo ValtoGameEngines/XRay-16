@@ -180,7 +180,7 @@ ICF void CBackend::set_Vertices(ID3DVertexBuffer* _vb, u32 _vb_stride)
         vb_stride = _vb_stride;
         // CHK_DX           (HW.pDevice->SetStreamSource(0,vb,0,vb_stride));
         // UINT StreamNumber,
-        // IDirect3DVertexBuffer9 * pStreamData,
+        // ID3DVertexBuffer * pStreamData,
         // UINT OffsetInBytes,
         // UINT Stride
 
@@ -484,13 +484,13 @@ IC void CBackend::ApplyVertexLayout()
 ICF void CBackend::set_VS(ref_vs& _vs)
 {
     m_pInputSignature = _vs->signature->signature;
-    set_VS(_vs->vs, _vs->cName.c_str());
+    set_VS(_vs->sh, _vs->cName.c_str());
 }
 
 ICF void CBackend::set_VS(SVS* _vs)
 {
     m_pInputSignature = _vs->signature->signature;
-    set_VS(_vs->vs, _vs->cName.c_str());
+    set_VS(_vs->sh, _vs->cName.c_str());
 }
 
 IC bool CBackend::CBuffersNeedUpdate(

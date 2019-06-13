@@ -1,7 +1,7 @@
-#include "stdafx.h"
-#include "inventory.h"
-#include "weapon.h"
-#include "actor.h"
+#include "StdAfx.h"
+#include "Inventory.h"
+#include "Weapon.h"
+#include "Actor.h"
 #include "xrCore/xr_ini.h"
 
 static u32 const ammo_to_cost_map_koef = 3;
@@ -65,7 +65,7 @@ public:
     };
 
 private:
-    next_weapon_searcher& operator=(next_weapon_searcher const& copy) {}
+    next_weapon_searcher& operator=(next_weapon_searcher const& copy) = delete;
     priority_group& m_prior_group;
     exception_items_t& m_except_set;
     PIItem& m_best_fit;
@@ -203,7 +203,7 @@ static char const* teamdata_section = "deathmatch_team0";
 
 void CInventory::InitPriorityGroupsForQSwitch()
 {
-    STATIC_CHECK(epg_groups_count == CInventory::qs_priorities_count, groups_count_problem);
+    static_assert(epg_groups_count == qs_priorities_count, "Groups count problem.");
     for (int i = epg_pistols; i < epg_groups_count; ++i)
     {
         m_groups[i].init_group(teamdata_section, groups_names[i]);

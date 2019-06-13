@@ -1,10 +1,10 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #pragma hdrstop
 
 #include "CameraLook.h"
-#include "xrEngine/Cameramanager.h"
+#include "xrEngine/CameraManager.h"
 #include "xr_level_controller.h"
-#include "actor.h"
+#include "Actor.h"
 
 CCameraLook::CCameraLook(IGameObject* p, u32 flags) : CCameraBase(p, flags) {}
 void CCameraLook::Load(LPCSTR section)
@@ -85,7 +85,7 @@ void CCameraLook::OnActivate(CCameraBase* old_cam)
 #include "visual_memory_manager.h"
 #include "actor_memory.h"
 
-int cam_dik = DIK_LSHIFT;
+int cam_dik = SDL_SCANCODE_LSHIFT;
 
 Fvector CCameraLook2::m_cam_offset;
 void CCameraLook2::OnActivate(CCameraBase* old_cam) { CCameraLook::OnActivate(old_cam); }

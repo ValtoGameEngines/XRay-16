@@ -77,8 +77,8 @@ void CBlender_accum_direct::Compile(CBlender_Compile& C)
         jitter(C);
         {
             u32 s = C.r_dx10Sampler("smp_smap");
-            C.i_dx10Address(s, D3DTADDRESS_BORDER);
-            C.i_dx10BorderColor(s, D3DCOLOR_ARGB(255, 255, 255, 255));
+            C.i_Address(s, D3DTADDRESS_BORDER);
+            C.i_BorderColor(s, D3DCOLOR_ARGB(255, 255, 255, 255));
         }
 
         C.r_End();
@@ -167,9 +167,9 @@ void CBlender_accum_direct_msaa::Compile(CBlender_Compile& C)
     IBlender::Compile(C);
 
     if (Name)
-        GlobalEnv.Render->m_MSAASample = atoi(Definition);
+        GEnv.Render->m_MSAASample = atoi(Definition);
     else
-        GlobalEnv.Render->m_MSAASample = -1;
+        GEnv.Render->m_MSAASample = -1;
 
     //	BOOL	b_HW_smap		= RImplementation.o.HW_smap;
     //	BOOL	b_HW_PCF		= RImplementation.o.HW_smap_PCF;
@@ -251,8 +251,8 @@ void CBlender_accum_direct_msaa::Compile(CBlender_Compile& C)
         jitter(C);
         {
             u32 s = C.r_dx10Sampler("smp_smap");
-            C.i_dx10Address(s, D3DTADDRESS_BORDER);
-            C.i_dx10BorderColor(s, D3DCOLOR_ARGB(255, 255, 255, 255));
+            C.i_Address(s, D3DTADDRESS_BORDER);
+            C.i_BorderColor(s, D3DCOLOR_ARGB(255, 255, 255, 255));
         }
 
         C.r_End();
@@ -302,7 +302,7 @@ void CBlender_accum_direct_msaa::Compile(CBlender_Compile& C)
         C.r_End();
         break;
     }
-    GlobalEnv.Render->m_MSAASample = -1;
+    GEnv.Render->m_MSAASample = -1;
 }
 
 CBlender_accum_direct_volumetric_msaa::CBlender_accum_direct_volumetric_msaa()
@@ -318,9 +318,9 @@ void CBlender_accum_direct_volumetric_msaa::Compile(CBlender_Compile& C)
     IBlender::Compile(C);
 
     if (Name)
-        GlobalEnv.Render->m_MSAASample = atoi(Definition);
+        GEnv.Render->m_MSAASample = atoi(Definition);
     else
-        GlobalEnv.Render->m_MSAASample = -1;
+        GEnv.Render->m_MSAASample = -1;
 
     //	BOOL	b_HW_smap		= RImplementation.o.HW_smap;
     //	BOOL	b_HW_PCF		= RImplementation.o.HW_smap_PCF;
@@ -338,7 +338,7 @@ void CBlender_accum_direct_volumetric_msaa::Compile(CBlender_Compile& C)
         C.r_Pass("accum_sun", "accum_volumetric_sun_msaa", false, TRUE, FALSE, blend, D3DBLEND_ONE, dest);
         C.r_dx10Texture("s_lmap", C.L_textures[0]);
         C.r_dx10Texture("s_smap", r2_RT_smap_depth);
-        C.r_dx10Texture("s_noise", "fx\\fx_noise");
+        C.r_dx10Texture("s_noise", "fx" DELIMITER "fx_noise");
 
         C.r_dx10Sampler("smp_rtlinear");
         C.r_dx10Sampler("smp_linear");
@@ -346,7 +346,7 @@ void CBlender_accum_direct_volumetric_msaa::Compile(CBlender_Compile& C)
         C.r_End();
         break;
     }
-    GlobalEnv.Render->m_MSAASample = -1;
+    GEnv.Render->m_MSAASample = -1;
 }
 
 CBlender_accum_direct_volumetric_sun_msaa::CBlender_accum_direct_volumetric_sun_msaa()
@@ -362,9 +362,9 @@ void CBlender_accum_direct_volumetric_sun_msaa::Compile(CBlender_Compile& C)
     IBlender::Compile(C);
 
     if (Name)
-        GlobalEnv.Render->m_MSAASample = atoi(Definition);
+        GEnv.Render->m_MSAASample = atoi(Definition);
     else
-        GlobalEnv.Render->m_MSAASample = -1;
+        GEnv.Render->m_MSAASample = -1;
 
     switch (C.iElement)
     {
@@ -380,5 +380,5 @@ void CBlender_accum_direct_volumetric_sun_msaa::Compile(CBlender_Compile& C)
         C.r_End();
         break;
     }
-    GlobalEnv.Render->m_MSAASample = -1;
+    GEnv.Render->m_MSAASample = -1;
 }

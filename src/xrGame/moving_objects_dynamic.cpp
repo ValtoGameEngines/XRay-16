@@ -6,7 +6,7 @@
 //	Description : moving objects with dynamic objects, i.e. objects with predictable behaviour
 ////////////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "moving_objects.h"
 #include "ai_space.h"
 #include "xrAICore/Navigation/level_graph.h"
@@ -499,9 +499,9 @@ void moving_objects::query_action_dynamic(moving_object* object)
     if (object->action_frame() == Device.dwFrame)
         return;
 
-    m_visited_emitters.clear_not_free();
-    m_collision_emitters.clear_not_free();
-    m_collisions.clear_not_free();
+    m_visited_emitters.clear();
+    m_collision_emitters.clear();
+    m_collisions.clear();
 
     m_collision_emitters.push_back(object);
     while (!m_collision_emitters.empty())

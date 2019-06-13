@@ -1,9 +1,11 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 
 #include "phvalide.h"
-#include "mathutils.h"
-#include "iphysicsshellholder.h"
-
+#include "MathUtils.h"
+#include "IPhysicsShellHolder.h"
+#ifdef DEBUG
+#include "xrCore/dump_string.h"
+#endif
 extern Fbox phBoundaries;
 
 bool valid_pos(const Fvector& P) { return valid_pos(P, phBoundaries); }

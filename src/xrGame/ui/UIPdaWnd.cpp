@@ -1,29 +1,30 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "UIPdaWnd.h"
 #include "PDA.h"
 
-#include "xrUIXmlParser.h"
+#include "xrUICore/XML/xrUIXmlParser.h"
 #include "UIXmlInit.h"
 #include "UIInventoryUtilities.h"
 
 #include "Level.h"
 #include "UIGameCustom.h"
 
-#include "UIStatic.h"
-#include "UIFrameWindow.h"
-#include "UITabControl.h"
+#include "xrUICore/Static/UIStatic.h"
+#include "xrUICore/Windows/UIFrameWindow.h"
+#include "xrUICore/TabControl/UITabControl.h"
 #include "UIMapWnd.h"
-#include "UIFrameLineWnd.h"
+#include "xrUICore/Windows/UIFrameLineWnd.h"
 #include "Common/object_broker.h"
 #include "UIMessagesWindow.h"
 #include "UIMainIngameWnd.h"
-#include "UITabButton.h"
-#include "UIAnimatedStatic.h"
+#include "xrUICore/TabControl/UITabButton.h"
+#include "xrUICore/Static/UIAnimatedStatic.h"
 
 #include "UIHelper.h"
-#include "UIHint.h"
-#include "UIBtnHint.h"
+#include "xrUICore/Hint/UIHint.h"
+#include "xrUICore/Buttons/UIBtnHint.h"
 #include "UITaskWnd.h"
+#include "UIFactionWarWnd.h"
 #include "UIRankingWnd.h"
 #include "UILogsWnd.h"
 
@@ -36,7 +37,7 @@ void RearrangeTabButtons(CUITabControl* pTab);
 CUIPdaWnd::CUIPdaWnd()
 {
     pUITaskWnd = NULL;
-    //-	pUIFactionWarWnd = NULL;
+    pUIFactionWarWnd = NULL;
     pUIRankingWnd = NULL;
     pUILogsWnd = NULL;
     m_hint_wnd = NULL;
@@ -46,7 +47,7 @@ CUIPdaWnd::CUIPdaWnd()
 CUIPdaWnd::~CUIPdaWnd()
 {
     delete_data(pUITaskWnd);
-    //-	delete_data( pUIFactionWarWnd );
+    delete_data(pUIFactionWarWnd);
     delete_data(pUIRankingWnd);
     delete_data(pUILogsWnd);
     delete_data(m_hint_wnd);
@@ -56,7 +57,7 @@ CUIPdaWnd::~CUIPdaWnd()
 void CUIPdaWnd::Init()
 {
     CUIXml uiXml;
-    uiXml.Load(CONFIG_PATH, UI_PATH, PDA_XML);
+    uiXml.Load(CONFIG_PATH, UI_PATH, UI_PATH_DEFAULT, PDA_XML);
 
     m_pActiveDialog = NULL;
     m_sActiveSection = "";
@@ -64,15 +65,18 @@ void CUIPdaWnd::Init()
     CUIXmlInit::InitWindow(uiXml, "main", 0, this);
 
     UIMainPdaFrame = UIHelper::CreateStatic(uiXml, "background_static", this);
-    m_caption = UIHelper::CreateTextWnd(uiXml, "caption_static", this);
+    m_caption = UIHelper::CreateStatic(uiXml, "caption_static", this);
     m_caption_const = (m_caption->GetText());
-    m_clock = UIHelper::CreateTextWnd(uiXml, "clock_wnd", this);
-    /*
-        m_anim_static			= new CUIAnimatedStatic();
-        AttachChild				(m_anim_static);
+    m_clock = UIHelper::CreateTextWnd(uiXml, "clock_wnd", this, false);
+
+    if (uiXml.NavigateToNode("anim_static")) // XXX: Replace with UIHelper
+    {
+        m_anim_static = new CUIAnimatedStatic();
+        AttachChild(m_anim_static);
         m_anim_static->SetAutoDelete(true);
         CUIXmlInit::InitAnimatedStatic(uiXml, "anim_static", 0, m_anim_static);
-    */
+    }
+
     m_btn_close = UIHelper::Create3tButton(uiXml, "close_button", this);
     m_hint_wnd = UIHelper::CreateHint(uiXml, "hint_wnd");
 
@@ -82,9 +86,9 @@ void CUIPdaWnd::Init()
         pUITaskWnd->hint_wnd = m_hint_wnd;
         pUITaskWnd->Init();
 
-        //-		pUIFactionWarWnd				= new CUIFactionWarWnd();
-        //-		pUIFactionWarWnd->hint_wnd		= m_hint_wnd;
-        //-		pUIFactionWarWnd->Init			();
+        pUIFactionWarWnd = new CUIFactionWarWnd();
+        pUIFactionWarWnd->hint_wnd = m_hint_wnd;
+        pUIFactionWarWnd->Init();
 
         pUIRankingWnd = new CUIRankingWnd();
         pUIRankingWnd->Init();
@@ -103,7 +107,9 @@ void CUIPdaWnd::Init()
     UINoice->SetAutoDelete(true);
     CUIXmlInit::InitStatic(uiXml, "noice_static", 0, UINoice);
 
-    //	RearrangeTabButtons		(UITabControl);
+    // XXX: dynamically determine if we need to rearrange the tabs
+    if (ClearSkyMode)
+        RearrangeTabButtons(UITabControl);
 }
 
 void CUIPdaWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
@@ -161,9 +167,14 @@ void CUIPdaWnd::Update()
 {
     inherited::Update();
     m_pActiveDialog->Update();
-    m_clock->TextItemControl().SetText(
-        InventoryUtilities::GetGameTimeAsString(InventoryUtilities::etpTimeToMinutes).c_str());
 
+    if (m_clock)
+    {
+        m_clock->TextItemControl().SetText(
+            GetGameTimeAsString(InventoryUtilities::etpTimeToMinutes).c_str());
+    }
+
+    R_ASSERT(pUILogsWnd);
     Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(pUILogsWnd, &CUILogsWnd::PerformWork));
 }
 
@@ -182,10 +193,10 @@ void CUIPdaWnd::SetActiveSubdialog(const shared_str& section)
     {
         m_pActiveDialog = pUITaskWnd;
     }
-    //-	else if ( section == "eptFractionWar" )
-    //-	{
-    //-		m_pActiveDialog = pUIFactionWarWnd;
-    //-	}
+    else if ( section == "eptFractionWar" )
+    {
+   		m_pActiveDialog = pUIFactionWarWnd;
+    }
     else if (section == "eptRanking")
     {
         m_pActiveDialog = pUIRankingWnd;
@@ -257,10 +268,10 @@ void CUIPdaWnd::DrawHint()
     {
         pUITaskWnd->DrawHint();
     }
-    //-	else if ( m_pActiveDialog == pUIFactionWarWnd )
-    //-	{
-    //		m_hint_wnd->Draw();
-    //-	}
+    else if ( m_pActiveDialog == pUIFactionWarWnd )
+    {
+    	m_hint_wnd->Draw();
+    }
     else if (m_pActiveDialog == pUIRankingWnd)
     {
         pUIRankingWnd->DrawHint();
@@ -288,7 +299,8 @@ void CUIPdaWnd::Reset()
 
     if (pUITaskWnd)
         pUITaskWnd->ResetAll();
-    //-	if ( pUIFactionWarWnd )	pUITaskWnd->ResetAll();
+    if (pUIFactionWarWnd)	
+		pUITaskWnd->ResetAll();
     if (pUIRankingWnd)
         pUIRankingWnd->ResetAll();
     if (pUILogsWnd)
@@ -298,20 +310,17 @@ void CUIPdaWnd::Reset()
 void CUIPdaWnd::SetCaption(LPCSTR text) { m_caption->SetText(text); }
 void RearrangeTabButtons(CUITabControl* pTab)
 {
-    TABS_VECTOR* btn_vec = pTab->GetButtonsVector();
-    TABS_VECTOR::iterator it = btn_vec->begin();
-    TABS_VECTOR::iterator it_e = btn_vec->end();
+    const auto& buttons = *pTab->GetButtonsVector();
 
     Fvector2 pos;
-    pos.set((*it)->GetWndPos());
-    float size_x;
+    pos.set(buttons.front()->GetWndPos());
 
-    for (; it != it_e; ++it)
+    for (const auto& btn : buttons)
     {
-        (*it)->SetWndPos(pos);
-        (*it)->AdjustWidthToText();
-        size_x = (*it)->GetWndSize().x + 30.0f;
-        (*it)->SetWidth(size_x);
+        btn->SetWndPos(pos);
+        btn->AdjustWidthToText();
+        const float size_x = btn->GetWidth() + 30.0f;
+        btn->SetWidth(size_x);
         pos.x += size_x - 6.0f;
     }
 

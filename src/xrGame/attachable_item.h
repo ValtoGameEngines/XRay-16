@@ -7,9 +7,17 @@
 ////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+#include "xrCore/_types.h"
+#include "xrCore/_matrix.h"
+#include "xrCore/xrstring.h"
+#ifdef DEBUG
+#include "xrCore/log.h"
+#include "xrCore/_vector3d.h"
+#endif
 
 class CPhysicsShellHolder;
 class CInventoryItem;
+class IFactoryObject;
 
 class CAttachableItem
 {
@@ -46,7 +54,7 @@ public:
     virtual void enable(bool value);
 
 protected:
-    virtual bool use_parent_ai_locations() const = 0 { return !enabled(); }
+    virtual bool use_parent_ai_locations() const = 0;
 public:
 #ifdef DEBUG
     static CAttachableItem* m_dbgItem;

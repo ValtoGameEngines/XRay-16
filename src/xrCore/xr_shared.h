@@ -1,6 +1,9 @@
 #ifndef xr_sharedH
 #define xr_sharedH
 #pragma once
+//#include "_stl_extensions.h"
+#include "xrstring.h"
+#include "xrCommon/xr_map.h"
 
 class XRCORE_API shared_value
 {
@@ -32,7 +35,7 @@ public:
             result = new T();
             result->m_ref_cnt = 0;
             if (p(key, result))
-                container.insert(mk_pair(key, result));
+                container.insert(std::make_pair(key, result));
             else
                 xr_delete(result);
         }
@@ -44,7 +47,7 @@ public:
         SharedMapIt _E = container.end();
         if (force_destroy)
         {
-            for (; it != _E; it++)
+            for (; it != _E; ++it)
             {
                 T* sv = it->second;
                 xr_delete(sv);
@@ -66,7 +69,7 @@ public:
                 }
                 else
                 {
-                    it++;
+                    ++it;
                 }
             }
         }

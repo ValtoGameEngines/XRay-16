@@ -9,9 +9,9 @@
 #include "pch_script.h"
 #include "inventory_item.h"
 #include "inventory_item_impl.h"
-#include "inventory.h"
+#include "Inventory.h"
 
-#include "physicsshellholder.h"
+#include "PhysicsShellHolder.h"
 #include "entity_alive.h"
 #include "Level.h"
 #include "game_cl_base.h"
@@ -21,12 +21,17 @@
 #include "xrAICore/Navigation/ai_object_location.h"
 #include "Common/object_broker.h"
 #include "xrEngine/IGame_Persistent.h"
+#include "xrNetServer/NET_Messages.h"
 
 #ifdef DEBUG
 #include "debug_renderer.h"
 #endif
 
 #define ITEM_REMOVE_TIME 30000
+
+constexpr pcstr INV_NAME_KEY = "inv_name";
+constexpr pcstr INV_NAME_SHORT_KEY = "inv_name_short";
+constexpr pcstr DESCRIPTION_KEY = "description";
 
 net_updateInvData* CInventoryItem::NetSync()
 {
@@ -92,8 +97,8 @@ void CInventoryItem::Load(LPCSTR section)
         self->GetSpatialData().type |= STYPE_VISIBLEFORAI;
 
     m_section_id._set(section);
-    m_name = CStringTable().translate(pSettings->r_string(section, "inv_name"));
-    m_nameShort = CStringTable().translate(pSettings->r_string(section, "inv_name_short"));
+    m_name = StringTable().translate(pSettings->r_string(section, INV_NAME_KEY));
+    m_nameShort = StringTable().translate(pSettings->r_string(section, INV_NAME_SHORT_KEY));
 
     m_weight = pSettings->r_float(section, "inv_weight");
     R_ASSERT(m_weight >= 0.f);
@@ -102,13 +107,16 @@ void CInventoryItem::Load(LPCSTR section)
     u32 sl = pSettings->r_u32(section, "slot");
     m_ItemCurrPlace.base_slot_id = (sl == -1) ? 0 : (sl + 1);
 
-    m_Description = CStringTable().translate(pSettings->r_string(section, "description"));
+    m_Description = StringTable().translate(pSettings->r_string(section, DESCRIPTION_KEY));
 
     m_flags.set(Fbelt, READ_IF_EXISTS(pSettings, r_bool, section, "belt", FALSE));
     m_can_trade = READ_IF_EXISTS(pSettings, r_bool, section, "can_trade", TRUE);
     m_flags.set(FCanTake, READ_IF_EXISTS(pSettings, r_bool, section, "can_take", TRUE));
     m_flags.set(FCanTrade, m_can_trade);
     m_flags.set(FIsQuestItem, READ_IF_EXISTS(pSettings, r_bool, section, "quest_item", FALSE));
+
+    // Added by Axel, to enable optional condition use on any item
+    m_flags.set(FUsingCondition, READ_IF_EXISTS(pSettings, r_bool, section, "use_condition", false));
 
     if (BaseSlot() != NO_ACTIVE_SLOT || Belt())
     {
@@ -119,6 +127,13 @@ void CInventoryItem::Load(LPCSTR section)
     m_icon_name = READ_IF_EXISTS(pSettings, r_string, section, "icon_name", NULL);
 }
 
+void CInventoryItem::ReloadNames()
+{
+    m_name = StringTable().translate(pSettings->r_string(m_object->cNameSect(), INV_NAME_KEY));
+    m_nameShort = StringTable().translate(pSettings->r_string(m_object->cNameSect(), INV_NAME_SHORT_KEY));
+    m_Description = StringTable().translate(pSettings->r_string(m_object->cNameSect(), DESCRIPTION_KEY));
+}
+
 void CInventoryItem::ChangeCondition(float fDeltaCondition)
 {
     m_fCondition += fDeltaCondition;
@@ -127,7 +142,7 @@ void CInventoryItem::ChangeCondition(float fDeltaCondition)
 
 void CInventoryItem::Hit(SHit* pHDS)
 {
-    if (!m_flags.test(FUsingCondition))
+    if (IsUsingCondition() == false)
         return;
 
     float hit_power = pHDS->damage();
@@ -257,7 +272,7 @@ bool CInventoryItem::Detach(const char* item_section_name, bool b_spawn_item)
         CSE_ALifeDynamicObject* l_tpALifeDynamicObject = smart_cast<CSE_ALifeDynamicObject*>(D);
         R_ASSERT(l_tpALifeDynamicObject);
 
-        l_tpALifeDynamicObject->m_tNodeID = (g_dedicated_server) ? u32(-1) : object().ai_location().level_vertex_id();
+        l_tpALifeDynamicObject->m_tNodeID = (GEnv.isDedicatedServer) ? u32(-1) : object().ai_location().level_vertex_id();
 
         // Fill
         D->s_name = item_section_name;
@@ -274,7 +289,7 @@ bool CInventoryItem::Detach(const char* item_section_name, bool b_spawn_item)
             if (object().H_Parent())
                 D->ID_Parent = u16(object().H_Parent()->ID());
             else
-                D->ID_Parent = NULL;
+                D->ID_Parent = 0;
         }
         D->ID_Phantom = 0xffff;
         D->o_Position = object().Position();

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "UIWindow.h"
-#include "UIWndCallback.h"
+#include "xrUICore/Windows/UIWindow.h"
+#include "xrUICore/Callbacks/UIWndCallback.h"
 
 class CUICustomMap;
 class CUIGlobalMap;
@@ -20,7 +20,7 @@ class CGameTask;
 class CUIXml;
 class UIHint;
 
-DEFINE_MAP(shared_str, CUICustomMap*, GameMaps, GameMapsPairIt);
+using GameMaps = xr_map<shared_str, CUICustomMap*>;
 
 class CUIMapWnd : public CUIWindow, public CUIWndCallback
 {

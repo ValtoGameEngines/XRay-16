@@ -1,21 +1,21 @@
-#include "stdafx.h"
-#include "xrEngine/xr_ioconsole.h"
-#include "customzone.h"
-#include "hit.h"
+#include "StdAfx.h"
+#include "xrEngine/XR_IOConsole.h"
+#include "CustomZone.h"
+#include "Hit.h"
 #include "PHDestroyable.h"
-#include "actor.h"
+#include "Actor.h"
 #include "ParticlesObject.h"
-#include "xrserver_objects_alife_monsters.h"
+#include "xrServer_Objects_ALife_Monsters.h"
 #include "xrEngine/LightAnimLibrary.h"
 #include "Level.h"
 #include "game_cl_base.h"
 #include "xrEngine/IGame_Persistent.h"
 #include "xrEngine/xr_collide_form.h"
-#include "artefact.h"
+#include "Artefact.h"
 #include "xrAICore/Navigation/ai_object_location.h"
 #include "Include/xrRender/Kinematics.h"
 #include "zone_effector.h"
-#include "breakableobject.h"
+#include "BreakableObject.h"
 #include "GamePersistent.h"
 
 #define WIND_RADIUS (4 * Radius()) //расстояние до актера, когда появляется ветер
@@ -311,13 +311,12 @@ BOOL CCustomZone::net_Spawn(CSE_Abstract* DC)
     m_zone_flags.set(eUseOnOffTime, (m_TimeToDisable != 0) && (m_TimeToEnable != 0));
 
     //добавить источники света
-    bool br1 = (0 == psDeviceFlags.test(rsR2 | rsR3 | rsR4));
-
+    bool br1 = psDeviceFlags.test(rsR1);
     bool render_ver_allowed = !br1 || (br1 && m_zone_flags.test(eIdleLightR1));
 
     if (m_zone_flags.test(eIdleLight) && render_ver_allowed)
     {
-        m_pIdleLight = GlobalEnv.Render->light_create();
+        m_pIdleLight = GEnv.Render->light_create();
         m_pIdleLight->set_shadow(!!m_zone_flags.test(eIdleLightShadow));
 
         if (m_zone_flags.test(eIdleLightVolumetric))
@@ -331,7 +330,7 @@ BOOL CCustomZone::net_Spawn(CSE_Abstract* DC)
 
     if (m_zone_flags.test(eBlowoutLight))
     {
-        m_pLight = GlobalEnv.Render->light_create();
+        m_pLight = GEnv.Render->light_create();
         m_pLight->set_shadow(true);
     }
     else
@@ -369,8 +368,8 @@ void CCustomZone::net_Destroy()
     if (m_actor_effector)
         m_actor_effector->Stop();
 
-    OBJECT_INFO_VEC_IT i = m_ObjectInfoMap.begin();
-    OBJECT_INFO_VEC_IT e = m_ObjectInfoMap.end();
+    auto i = m_ObjectInfoMap.begin();
+    auto e = m_ObjectInfoMap.end();
     for (; e != i; ++i)
         exit_Zone(*i);
     m_ObjectInfoMap.clear();
@@ -492,7 +491,7 @@ void CCustomZone::shedule_Update(u32 dt)
 
         //пройтись по всем объектам в зоне
         //и проверить их состояние
-        for (OBJECT_INFO_VEC_IT it = m_ObjectInfoMap.begin(); m_ObjectInfoMap.end() != it; ++it)
+        for (auto it = m_ObjectInfoMap.begin(); m_ObjectInfoMap.end() != it; ++it)
         {
             CGameObject* pObject = (*it).object;
             if (!pObject)
@@ -599,7 +598,7 @@ void CCustomZone::feel_touch_delete(IGameObject* O)
         StopObjectIdleParticles(pGameObject);
     }
 
-    OBJECT_INFO_VEC_IT it = std::find(m_ObjectInfoMap.begin(), m_ObjectInfoMap.end(), pGameObject);
+    auto it = std::find(m_ObjectInfoMap.begin(), m_ObjectInfoMap.end(), pGameObject);
     if (it != m_ObjectInfoMap.end())
     {
         exit_Zone(*it);
@@ -758,7 +757,7 @@ void CCustomZone::PlayHitParticles(CGameObject* pObject)
         }
     }
 }
-#include "bolt.h"
+#include "Bolt.h"
 void CCustomZone::PlayEntranceParticles(CGameObject* pObject)
 {
     m_entrance_sound.play_at_pos(0, pObject->Position());
@@ -928,7 +927,7 @@ void CCustomZone::StopObjectIdleParticles(CGameObject* pObject)
     if (!PP)
         return;
 
-    OBJECT_INFO_VEC_IT it = std::find(m_ObjectInfoMap.begin(), m_ObjectInfoMap.end(), pObject);
+    auto it = std::find(m_ObjectInfoMap.begin(), m_ObjectInfoMap.end(), pObject);
     if (m_ObjectInfoMap.end() == it)
         return;
 
@@ -1015,8 +1014,7 @@ void CCustomZone::AffectObjects()
     if (Device.dwPrecacheFrame)
         return;
 
-    OBJECT_INFO_VEC_IT it;
-    for (it = m_ObjectInfoMap.begin(); m_ObjectInfoMap.end() != it; ++it)
+    for (auto it = m_ObjectInfoMap.begin(); m_ObjectInfoMap.end() != it; ++it)
     {
         if (!(*it).object->getDestroy())
             Affect(&(*it));
@@ -1041,9 +1039,7 @@ void CCustomZone::UpdateBlowout()
     UpdateWind();
 
     if (m_dwBlowoutExplosionTime >= (u32)m_iPreviousStateTime && m_dwBlowoutExplosionTime < (u32)m_iStateTime)
-    {
         AffectObjects();
-    }
 }
 
 void CCustomZone::OnMove()
@@ -1132,7 +1128,7 @@ bool CCustomZone::Enable()
 
     o_switch_2_fast();
 
-    for (OBJECT_INFO_VEC_IT it = m_ObjectInfoMap.begin(); m_ObjectInfoMap.end() != it; ++it)
+    for (auto it = m_ObjectInfoMap.begin(); m_ObjectInfoMap.end() != it; ++it)
     {
         CGameObject* pObject = (*it).object;
         if (!pObject)
@@ -1150,7 +1146,7 @@ bool CCustomZone::Disable()
         return false;
     o_switch_2_slow();
 
-    for (OBJECT_INFO_VEC_IT it = m_ObjectInfoMap.begin(); m_ObjectInfoMap.end() != it; ++it)
+    for (auto it = m_ObjectInfoMap.begin(); m_ObjectInfoMap.end() != it; ++it)
     {
         CGameObject* pObject = (*it).object;
         if (!pObject)
@@ -1242,7 +1238,7 @@ void CCustomZone::CreateHit(u16 id_to, u16 id_from, const Fvector& hit_dir, floa
 void CCustomZone::net_Relcase(IGameObject* O)
 {
     CGameObject* GO = smart_cast<CGameObject*>(O);
-    OBJECT_INFO_VEC_IT it = std::find(m_ObjectInfoMap.begin(), m_ObjectInfoMap.end(), GO);
+    auto it = std::find(m_ObjectInfoMap.begin(), m_ObjectInfoMap.end(), GO);
     if (it != m_ObjectInfoMap.end())
     {
         exit_Zone(*it);
@@ -1344,8 +1340,8 @@ void CCustomZone::GoDisabledState()
     P.w_u8(u8(eZoneStateDisabled));
     u_EventSend(P);
 
-    OBJECT_INFO_VEC_IT it = m_ObjectInfoMap.begin();
-    OBJECT_INFO_VEC_IT it_e = m_ObjectInfoMap.end();
+    auto it = m_ObjectInfoMap.begin();
+    auto it_e = m_ObjectInfoMap.end();
 
     for (; it != it_e; ++it)
         exit_Zone(*it);

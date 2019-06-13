@@ -1,7 +1,7 @@
 #include "pch_script.h"
 #include "UIGameTutorial.h"
-#include "UIWindow.h"
-#include "UIStatic.h"
+#include "xrUICore/Windows/UIWindow.h"
+#include "xrUICore/Static/UIStatic.h"
 #include "UIXmlInit.h"
 #include "Common/object_broker.h"
 #include "xrEngine/xr_input.h"
@@ -10,7 +10,7 @@
 #include "Include/xrRender/UISequenceVideoItem.h"
 #include "Include/xrRender/UIShader.h"
 #include "Include/xrRender/UIRender.h"
-#include "uicursor.h"
+#include "xrUICore/Cursor/UICursor.h"
 
 extern ENGINE_API BOOL bShowPauseString;
 
@@ -41,19 +41,19 @@ void CUISequenceVideoItem::Load(CUIXml* xml, int idx)
 {
     CUISequenceItem::Load(xml, idx);
 
-    XML_NODE* _stored_root = xml->GetLocalRoot();
+    XML_NODE _stored_root = xml->GetLocalRoot();
     xml->SetLocalRoot(xml->NavigateToNode("item", idx));
 
     LPCSTR str = xml->Read("pause_state", 0, "ignore");
-    m_flags.set(etiNeedPauseOn, 0 == _stricmp(str, "on"));
-    m_flags.set(etiNeedPauseOff, 0 == _stricmp(str, "off"));
-    m_flags.set(etiNeedPauseSound, 0 == _stricmp(str, "on"));
+    m_flags.set(etiNeedPauseOn, 0 == xr_stricmp(str, "on"));
+    m_flags.set(etiNeedPauseOff, 0 == xr_stricmp(str, "off"));
+    m_flags.set(etiNeedPauseSound, 0 == xr_stricmp(str, "on"));
 
     str = xml->Read("can_be_stopped", 0, "on");
-    m_flags.set(etiCanBeStopped, 0 == _stricmp(str, "on"));
+    m_flags.set(etiCanBeStopped, 0 == xr_stricmp(str, "on"));
 
     str = xml->Read("back_show", 0, "on");
-    m_flags.set(etiBackVisible, 0 == _stricmp(str, "on"));
+    m_flags.set(etiBackVisible, 0 == xr_stricmp(str, "on"));
 
     m_flags.set(etiGrabInput, TRUE);
 
@@ -93,7 +93,7 @@ void CUISequenceVideoItem::Load(CUIXml* xml, int idx)
     if (snd_name && snd_name[0])
     {
         m_sound.create(snd_name, st_Effect, sg_Undefined);
-        VERIFY(m_sound._handle());
+        VERIFY(m_sound._handle() || strstr(Core.Params, "-nosound"));
     }
     xml->SetLocalRoot(_stored_root);
 }
@@ -160,7 +160,7 @@ void CUISequenceVideoItem::OnRender()
 {
     if (!m_texture->HasTexture() && m_wnd->GetShader() && m_wnd->GetShader()->inited())
     {
-        GlobalEnv.UIRender->SetShader(*m_wnd->GetShader());
+        GEnv.UIRender->SetShader(*m_wnd->GetShader());
         m_texture->CaptureTexture();
         m_texture->video_Stop();
     }

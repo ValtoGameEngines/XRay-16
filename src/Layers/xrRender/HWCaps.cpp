@@ -1,17 +1,17 @@
 #include "stdafx.h"
 #pragma hdrstop
 
-#include "hwcaps.h"
-#include "hw.h"
+#include "HWCaps.h"
+#include "HW.h"
 
-#ifndef _EDITOR
+#if !defined(_EDITOR) && !defined(USE_OGL)
 #include <nvapi.h>
 #include <ags_lib/inc/amd_ags.h>
 #endif
 
 namespace
 {
-#ifndef _EDITOR
+#if !defined(_EDITOR) && !defined(USE_OGL)
 u32 GetNVGpuNum()
 {
     NvLogicalGpuHandle logicalGPUs[NVAPI_MAX_LOGICAL_GPUS];
@@ -61,9 +61,7 @@ u32 GetNVGpuNum()
     }
 
     if (iGpuNum > 1)
-    {
         Msg("* NVidia MGPU: %d-Way SLI detected.", iGpuNum);
-    }
 
     return iGpuNum;
 }
@@ -75,8 +73,8 @@ u32 GetATIGpuNum()
     AGSReturnCode status = agsInit(&ags, &gpuInfo);
     if (status != AGS_SUCCESS)
     {
-        Msg("! AGS: Initialization failed (%d)", status);
-        return 1;
+        Msg("* AGS: Initialization failed (%d)", status);
+        return 0;
     }
     int crossfireGpuCount = 1;
     status = agsGetCrossfireGPUCount(ags, &crossfireGpuCount);
@@ -94,16 +92,14 @@ u32 GetATIGpuNum()
 u32 GetGpuNum()
 {
     u32 res = GetNVGpuNum();
-
     res = _max(res, GetATIGpuNum());
-
-    res = _max(res, 2);
-
     res = _min(res, CHWCaps::MAX_GPUS);
 
-    //	It's vital to have at least one GPU, else
-    //	code will fail.
-    VERIFY(res > 0);
+    if (res == 0)
+    {
+        Log("! Cannot find graphic adapter. Assuming that you have one...");
+        res = 1;
+    }
 
     Msg("* Starting rendering as %d-GPU.", res);
 
@@ -114,7 +110,7 @@ u32 GetGpuNum() { return 1; }
 #endif
 }
 
-#if !defined(USE_DX10) && !defined(USE_DX11)
+#ifdef USE_DX9
 void CHWCaps::Update()
 {
     D3DCAPS9 caps;
@@ -183,7 +179,7 @@ void CHWCaps::Update()
 
     // Detect if stencil available
     bStencil = FALSE;
-    IDirect3DSurface9* surfZS = 0;
+    IDirect3DSurface9* surfZS = nullptr;
     D3DSURFACE_DESC surfDESC;
     CHK_DX(HW.pDevice->GetDepthStencilSurface(&surfZS));
     R_ASSERT(surfZS);
@@ -223,7 +219,7 @@ void CHWCaps::Update()
 
     iGPUNum = GetGpuNum();
 }
-#else //	USE_DX10
+#else // USE_DX9
 void CHWCaps::Update()
 {
     // ***************** GEOMETRY
@@ -237,29 +233,37 @@ void CHWCaps::Update()
     geometry.dwRegisters = cnt;
     geometry.dwInstructions = 256;
     geometry.dwClipPlanes = _min(6, 15);
+#ifdef USE_OGL
+    // XXX: Disabled by default. Need to:
+    // FIX: Sky texture filtering (point filter now) when VTF is on
+    // TODO: Implement support VTF and: HW.support(D3DFMT_R32F, D3DRTYPE_TEXTURE, D3DUSAGE_QUERY_VERTEXTEXTURE)
+    geometry.bVTF = (strstr(Core.Params, "-vtf")) ? TRUE : FALSE;
+#else // USE_OGL
     geometry.bVTF = TRUE;
+#endif // USE_OGL
 
     // ***************** PIXEL processing
     raster_major = 4;
     raster_minor = 0;
-    raster.dwStages = 16;
+    // XXX: review this
+    raster.dwStages = 15; // Previuos value is 16, but it's out of bounds
     raster.bNonPow2 = TRUE;
     raster.bCubemap = TRUE;
     raster.dwMRT_count = 4;
     // raster.b_MRT_mixdepth		= FALSE;
     raster.b_MRT_mixdepth = TRUE;
     raster.dwInstructions = 256;
+    //	TODO: DX10: Find a way to detect cache size
+    geometry.dwVertexCache = 24;
 
+#ifndef USE_OGL
     // ***************** Info
     Msg("* GPU shading: vs(%x/%d.%d/%d), ps(%x/%d.%d/%d)", 0, geometry_major, geometry_minor,
         CAP_VERSION(geometry_major, geometry_minor), 0, raster_major, raster_minor,
         CAP_VERSION(raster_major, raster_minor));
-
     // *******1********** Vertex cache
-    //	TODO: DX10: Find a way to detect cache size
-    geometry.dwVertexCache = 24;
     Msg("* GPU vertex cache: %s, %d", "unrecognized", u32(geometry.dwVertexCache));
-
+#endif // USE_OGL
     // *******1********** Compatibility : vertex shader
     if (0 == raster_major)
         geometry_major = 0; // Disable VS if no PS
@@ -282,4 +286,4 @@ void CHWCaps::Update()
 
     iGPUNum = GetGpuNum();
 }
-#endif //	USE_DX10
+#endif // USE_DX9

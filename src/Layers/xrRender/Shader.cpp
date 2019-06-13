@@ -26,11 +26,19 @@ void resptrcode_shader::create(IBlender* B, LPCSTR s_shader, LPCSTR s_textures, 
 }
 
 //////////////////////////////////////////////////////////////////////////
+#ifdef USE_OGL
+void resptrcode_geom::create(u32 FVF, GLuint vb, GLuint ib)
+#else
 void resptrcode_geom::create(u32 FVF, ID3DVertexBuffer* vb, ID3DIndexBuffer* ib)
+#endif // USE_OGL
 {
     _set(RImplementation.Resources->CreateGeom(FVF, vb, ib));
 }
+#ifdef USE_OGL
+void resptrcode_geom::create(D3DVERTEXELEMENT9* decl, GLuint vb, GLuint ib)
+#else
 void resptrcode_geom::create(D3DVERTEXELEMENT9* decl, ID3DVertexBuffer* vb, ID3DIndexBuffer* ib)
+#endif // USE_OGL
 {
     _set(RImplementation.Resources->CreateGeom(decl, vb, ib));
 }
@@ -46,7 +54,7 @@ BOOL SPass::equal(const SPass& other)
         return FALSE;
     if (vs != other.vs)
         return FALSE;
-#if defined(USE_DX10) || defined(USE_DX11)
+#ifndef USE_DX9
     if (gs != other.gs)
         return FALSE;
 #ifdef USE_DX11
@@ -102,33 +110,27 @@ BOOL ShaderElement::equal(ShaderElement& S)
     return TRUE;
 }
 
-BOOL ShaderElement::equal(ShaderElement* S)
+BOOL Shader::equal(Shader* S, int index)
 {
-    if (0 == S && 0 == this)
+    if(nullptr == E[index] && nullptr == S->E[index])
         return TRUE;
-    if (0 == S || 0 == this)
+    if(nullptr == E[index] || nullptr == S->E[index])
         return FALSE;
-    return equal(*S);
+
+    return E[index]->equal(*S->E[index]);
 }
 
-//
-BOOL Shader::equal(Shader& S)
+BOOL Shader::equal(Shader* S)
 {
-    return E[0]->equal(&*S.E[0]) && E[1]->equal(&*S.E[1]) && E[2]->equal(&*S.E[2]) && E[3]->equal(&*S.E[3]) &&
-        E[4]->equal(&*S.E[4]);
+    for (int i = 0; i < 5; i++)
+    {
+        if (!equal(S, i))
+            return FALSE;
+    }
+    return TRUE;
 }
-BOOL Shader::equal(Shader* S) { return equal(*S); }
+
 void STextureList::clear()
-{
-    iterator it = begin();
-    iterator it_e = end();
-    for (; it != it_e; ++it)
-        (*it).second.destroy();
-
-    erase(begin(), end());
-}
-
-void STextureList::clear_not_free()
 {
     iterator it = begin();
     iterator it_e = end();

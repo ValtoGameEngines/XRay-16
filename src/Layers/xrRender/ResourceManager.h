@@ -6,7 +6,7 @@
 #define ResourceManagerH
 #pragma once
 
-#include "shader.h"
+#include "Shader.h"
 #include "tss_def.h"
 #include "TextureDescrManager.h"
 #include "xrScriptEngine/script_engine.hpp"
@@ -19,9 +19,9 @@ class dx10ConstantBuffer;
 class ECORE_API CResourceManager
 {
 private:
-    struct str_pred : public std::binary_function<char*, char*, bool>
+    struct str_pred
     {
-        IC bool operator()(LPCSTR x, LPCSTR y) const { return xr_strcmp(x, y) < 0; }
+        bool operator()(LPCSTR x, LPCSTR y) const { return xr_strcmp(x, y) < 0; }
     };
     struct texture_detail
     {
@@ -30,24 +30,26 @@ private:
     };
 
 public:
-    DEFINE_MAP_PRED(const char*, IBlender*, map_Blender, map_BlenderIt, str_pred);
-    DEFINE_MAP_PRED(const char*, CTexture*, map_Texture, map_TextureIt, str_pred);
-    DEFINE_MAP_PRED(const char*, CMatrix*, map_Matrix, map_MatrixIt, str_pred);
-    DEFINE_MAP_PRED(const char*, CConstant*, map_Constant, map_ConstantIt, str_pred);
-    DEFINE_MAP_PRED(const char*, CRT*, map_RT, map_RTIt, str_pred);
+    using map_Blender = xr_map<const char*, IBlender*, str_pred>;
+    using map_Texture = xr_map<const char*, CTexture*, str_pred>;
+    using map_Matrix = xr_map<const char*, CMatrix*, str_pred>;
+    using map_Constant = xr_map<const char*, CConstant*, str_pred>;
+    using map_RT = xr_map<const char*, CRT*, str_pred>;
     //	DX10 cut DEFINE_MAP_PRED(const char*,CRTC*,			map_RTC,		map_RTCIt,			str_pred);
-    DEFINE_MAP_PRED(const char*, SVS*, map_VS, map_VSIt, str_pred);
-#if defined(USE_DX10) || defined(USE_DX11)
-    DEFINE_MAP_PRED(const char*, SGS*, map_GS, map_GSIt, str_pred);
-#endif //	USE_DX10
-#ifdef USE_DX11
-    DEFINE_MAP_PRED(const char*, SHS*, map_HS, map_HSIt, str_pred);
-    DEFINE_MAP_PRED(const char*, SDS*, map_DS, map_DSIt, str_pred);
-    DEFINE_MAP_PRED(const char*, SCS*, map_CS, map_CSIt, str_pred);
+    using map_VS = xr_map<const char*, SVS*, str_pred>;
+
+#ifndef USE_DX9
+    using map_GS = xr_map<const char*, SGS*, str_pred>;
 #endif
 
-    DEFINE_MAP_PRED(const char*, SPS*, map_PS, map_PSIt, str_pred);
-    DEFINE_MAP_PRED(const char*, texture_detail, map_TD, map_TDIt, str_pred);
+#if defined(USE_DX11) || defined(USE_OGL)
+    using map_HS = xr_map<const char*, SHS*, str_pred>;
+    using map_DS = xr_map<const char*, SDS*, str_pred>;
+    using map_CS = xr_map<const char*, SCS*, str_pred>;
+#endif
+
+    using map_PS = xr_map<const char*, SPS*, str_pred>;
+    using map_TD = xr_map<const char*, texture_detail, str_pred>;
 
 private:
     // data
@@ -59,9 +61,17 @@ private:
     //	DX10 cut map_RTC												m_rtargets_c;
     map_VS m_vs;
     map_PS m_ps;
-#if defined(USE_DX10) || defined(USE_DX11)
+
+#ifndef USE_DX9
     map_GS m_gs;
-#endif //	USE_DX10
+#endif
+
+#if defined(USE_DX11) || defined(USE_OGL)
+    map_DS m_ds;
+    map_HS m_hs;
+    map_CS m_cs;
+#endif
+
     map_TD m_td;
 
     xr_vector<SState*> v_states;
@@ -149,12 +159,12 @@ public:
 
 //	DX10 cut CRTC*							_CreateRTC			(LPCSTR Name, u32 size,	D3DFORMAT f);
 //	DX10 cut void							_DeleteRTC			(const CRTC*	RT	);
-#if defined(USE_DX10) || defined(USE_DX11)
+#ifndef USE_DX9
     SGS* _CreateGS(LPCSTR Name);
     void _DeleteGS(const SGS* GS);
 #endif //	USE_DX10
 
-#ifdef USE_DX11
+#if defined(USE_DX11) || defined(USE_OGL)
     SHS* _CreateHS(LPCSTR Name);
     void _DeleteHS(const SHS* HS);
 
@@ -163,7 +173,7 @@ public:
 
     SCS* _CreateCS(LPCSTR Name);
     void _DeleteCS(const SCS* CS);
-#endif //	USE_DX10
+#endif
 
     SPS* _CreatePS(LPCSTR Name);
     void _DeletePS(const SPS* PS);
@@ -177,6 +187,10 @@ public:
     // Shader compiling / optimizing
     SState* _CreateState(SimulatorStates& Code);
     void _DeleteState(const SState* SB);
+
+#ifdef USE_OGL
+    SDeclaration* _CreateDecl (u32 FVF);
+#endif
 
     SDeclaration* _CreateDecl(D3DVERTEXELEMENT9* dcl);
     void _DeleteDecl(const SDeclaration* dcl);
@@ -193,9 +207,9 @@ public:
     ShaderElement* _CreateElement(ShaderElement& L);
     void _DeleteElement(const ShaderElement* L);
 
-    Shader* _cpp_Create(LPCSTR s_shader, LPCSTR s_textures = 0, LPCSTR s_constants = 0, LPCSTR s_matrices = 0);
+    Shader* _cpp_Create(LPCSTR s_shader, LPCSTR s_textures = nullptr, LPCSTR s_constants = nullptr, LPCSTR s_matrices = nullptr);
     Shader* _cpp_Create(
-        IBlender* B, LPCSTR s_shader = 0, LPCSTR s_textures = 0, LPCSTR s_constants = 0, LPCSTR s_matrices = 0);
+        IBlender* B, LPCSTR s_shader = nullptr, LPCSTR s_textures = nullptr, LPCSTR s_constants = nullptr, LPCSTR s_matrices = nullptr);
     Shader* _lua_Create(LPCSTR s_shader, LPCSTR s_textures);
     BOOL _lua_HasShader(LPCSTR s_shader);
 
@@ -210,17 +224,23 @@ public:
     void reset_end();
 
     // Creation/Destroying
-    Shader* Create(LPCSTR s_shader = 0, LPCSTR s_textures = 0, LPCSTR s_constants = 0, LPCSTR s_matrices = 0);
+    Shader* Create(LPCSTR s_shader = nullptr, LPCSTR s_textures = nullptr, LPCSTR s_constants = nullptr, LPCSTR s_matrices = nullptr);
     Shader* Create(
-        IBlender* B, LPCSTR s_shader = 0, LPCSTR s_textures = 0, LPCSTR s_constants = 0, LPCSTR s_matrices = 0);
+        IBlender* B, LPCSTR s_shader = nullptr, LPCSTR s_textures = nullptr, LPCSTR s_constants = nullptr, LPCSTR s_matrices = nullptr);
     void Delete(const Shader* S);
     void RegisterConstantSetup(LPCSTR name, R_constant_setup* s)
     {
-        v_constant_setup.push_back(mk_pair(shared_str(name), s));
+        v_constant_setup.push_back(std::make_pair(shared_str(name), s));
     }
 
+#ifdef USE_OGL
+    SGeometry* CreateGeom(D3DVERTEXELEMENT9* decl, GLuint vb, GLuint ib);
+    SGeometry* CreateGeom(u32 FVF, GLuint vb, GLuint ib);
+#else
     SGeometry* CreateGeom(D3DVERTEXELEMENT9* decl, ID3DVertexBuffer* vb, ID3DIndexBuffer* ib);
     SGeometry* CreateGeom(u32 FVF, ID3DVertexBuffer* vb, ID3DIndexBuffer* ib);
+#endif
+
     void DeleteGeom(const SGeometry* VS);
     void DeferredLoad(BOOL E) { bDeferredLoad = E; }
     void DeferredUpload();
@@ -231,21 +251,14 @@ public:
     void Dump(bool bBrief);
 
 private:
-#ifdef USE_DX11
-    map_DS m_ds;
-    map_HS m_hs;
-    map_CS m_cs;
-
     template <typename T>
     T& GetShaderMap();
 
     template <typename T>
-    T* CreateShader(const char* name);
+    T* CreateShader(const char* name, const char* filename = nullptr, const bool searchForEntryAndTarget = false);
 
     template <typename T>
-    void DestroyShader(const T* sh);
-
-#endif //	USE_DX10
+    bool DestroyShader(const T* sh);
 };
 
 #endif // ResourceManagerH

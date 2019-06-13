@@ -6,9 +6,9 @@
 
 #include "entity_alive.h"
 #include "script_entity.h"
-#include "xrEngine/feel_vision.h"
-#include "xrEngine/feel_sound.h"
-#include "xrEngine/feel_touch.h"
+#include "xrEngine/Feel_Vision.h"
+#include "xrEngine/Feel_Sound.h"
+#include "xrEngine/Feel_Touch.h"
 #include "Include/xrRender/Kinematics.h"
 #include "xrCore/Containers/AssociativeVector.hpp"
 #include "trajectories.h"
@@ -36,7 +36,7 @@ class CCustomMonster : public CEntityAlive,
                        public Feel::Sound,
                        public Feel::Touch
 {
-private:
+protected:
     typedef CEntityAlive inherited;
 
 private:
@@ -333,4 +333,4 @@ public:
 #endif // #ifdef DEBUG
 };
 
-#include "custommonster_inline.h"
+#include "CustomMonster_inline.h"

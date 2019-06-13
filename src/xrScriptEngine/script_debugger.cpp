@@ -121,11 +121,13 @@ CScriptDebugger::CScriptDebugger(CScriptEngine* scriptEngine)
     //	m_pDebugger					= this;
     m_nLevel = 0;
     m_mailSlot = CreateMailSlotByName(DEBUGGER_MAIL_SLOT);
+#if defined(WINDOWS)
     if (m_mailSlot == INVALID_HANDLE_VALUE)
     {
         m_bIdePresent = false;
         return;
     }
+#endif
     Connect(IDE_MAIL_SLOT);
 }
 
@@ -148,7 +150,9 @@ CScriptDebugger::~CScriptDebugger()
 {
     if (Active())
         _SendMessage(DMSG_CLOSE_CONNECTION, 0, 0);
+#if defined(WINDOWS)
     CloseHandle(m_mailSlot);
+#endif
     xr_delete(m_threads);
     xr_delete(m_callStack);
     xr_delete(m_lua);
@@ -378,7 +382,7 @@ bool CScriptDebugger::HasBreakPoint(const char* fileName, s32 lineNum)
     for (u32 i = 0; i < m_breakPoints.size(); i++)
     {
         SBreakPoint bp(m_breakPoints[i]);
-        if (bp.nLine == lineNum && xr_strlen(bp.fileName) == xr_strlen(sFileName) && !stricmp(*bp.fileName, sFileName))
+        if (bp.nLine == lineNum && xr_strlen(bp.fileName) == xr_strlen(sFileName) && !xr_stricmp(*bp.fileName, sFileName))
             return true;
     }
     return false;

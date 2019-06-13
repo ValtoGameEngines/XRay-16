@@ -1,6 +1,7 @@
 
 
 #include <stdlib.h>
+#define WINDOWS
 #include "xrCore/_types.h"
 #undef FLT_MAX
 #undef FLT_MIN
@@ -9,6 +10,7 @@
 #include <algorithm>
 #include <string>
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 
 using namespace std;

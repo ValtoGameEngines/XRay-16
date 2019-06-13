@@ -72,7 +72,7 @@ void dxEnvDescriptorMixerRender::Destroy()
 
 void dxEnvDescriptorMixerRender::Clear()
 {
-    std::pair<u32, ref_texture> zero = mk_pair(u32(0), ref_texture(0));
+    std::pair<u32, ref_texture> zero = std::make_pair(u32(0), ref_texture(nullptr));
     sky_r_textures.clear();
     sky_r_textures.push_back(zero);
     sky_r_textures.push_back(zero);
@@ -95,17 +95,17 @@ void dxEnvDescriptorMixerRender::lerp(IEnvDescriptorRender* inA, IEnvDescriptorR
     dxEnvDescriptorRender* pB = (dxEnvDescriptorRender*)inB;
 
     sky_r_textures.clear();
-    sky_r_textures.push_back(mk_pair(0, pA->sky_texture));
-    sky_r_textures.push_back(mk_pair(1, pB->sky_texture));
+    sky_r_textures.push_back(std::make_pair(0, pA->sky_texture));
+    sky_r_textures.push_back(std::make_pair(1, pB->sky_texture));
 
     sky_r_textures_env.clear();
 
-    sky_r_textures_env.push_back(mk_pair(0, pA->sky_texture_env));
-    sky_r_textures_env.push_back(mk_pair(1, pB->sky_texture_env));
+    sky_r_textures_env.push_back(std::make_pair(0, pA->sky_texture_env));
+    sky_r_textures_env.push_back(std::make_pair(1, pB->sky_texture_env));
 
     clouds_r_textures.clear();
-    clouds_r_textures.push_back(mk_pair(0, pA->clouds_texture));
-    clouds_r_textures.push_back(mk_pair(1, pB->clouds_texture));
+    clouds_r_textures.push_back(std::make_pair(0, pA->clouds_texture));
+    clouds_r_textures.push_back(std::make_pair(1, pB->clouds_texture));
 }
 
 void dxEnvDescriptorRender::OnDeviceCreate(CEnvDescriptor& owner)
@@ -137,26 +137,33 @@ void dxEnvironmentRender::OnFrame(CEnvironment& env)
 {
     dxEnvDescriptorMixerRender& mixRen = *(dxEnvDescriptorMixerRender*)&*env.CurrentEnv->m_pDescriptorMixer;
 
-    if (GlobalEnv.Render->get_generation() == IRender::GENERATION_R2)
+    if (GEnv.Render->get_generation() == IRender::GENERATION_R2)
     {
         //. very very ugly hack
         if (HW.Caps.raster_major >= 3 && HW.Caps.geometry.bVTF)
         {
             // tonemapping in VS
-            mixRen.sky_r_textures.push_back(mk_pair(u32(CTexture::rstVertex), tonemap)); //. hack
-            mixRen.sky_r_textures_env.push_back(mk_pair(u32(CTexture::rstVertex), tonemap)); //. hack
-            mixRen.clouds_r_textures.push_back(mk_pair(u32(CTexture::rstVertex), tonemap)); //. hack
+            mixRen.sky_r_textures.push_back(std::make_pair(u32(CTexture::rstVertex), tonemap)); //. hack
+            mixRen.sky_r_textures_env.push_back(std::make_pair(u32(CTexture::rstVertex), tonemap)); //. hack
+            mixRen.clouds_r_textures.push_back(std::make_pair(u32(CTexture::rstVertex), tonemap)); //. hack
         }
         else
         {
             // tonemapping in PS
-            mixRen.sky_r_textures.push_back(mk_pair(2, tonemap)); //. hack
-            mixRen.sky_r_textures_env.push_back(mk_pair(2, tonemap)); //. hack
-            mixRen.clouds_r_textures.push_back(mk_pair(2, tonemap)); //. hack
+            mixRen.sky_r_textures.push_back(std::make_pair(2, tonemap)); //. hack
+            mixRen.sky_r_textures_env.push_back(std::make_pair(2, tonemap)); //. hack
+            mixRen.clouds_r_textures.push_back(std::make_pair(2, tonemap)); //. hack
         }
     }
 
     //. Setup skybox textures, somewhat ugly
+#ifdef USE_OGL
+    GLuint e0 = mixRen.sky_r_textures[0].second->surface_get();
+    GLuint e1 = mixRen.sky_r_textures[1].second->surface_get();
+
+    tsky0->surface_set(GL_TEXTURE_CUBE_MAP, e0);
+    tsky1->surface_set(GL_TEXTURE_CUBE_MAP, e1);
+#else // USE_OGL
     ID3DBaseTexture* e0 = mixRen.sky_r_textures[0].second->surface_get();
     ID3DBaseTexture* e1 = mixRen.sky_r_textures[1].second->surface_get();
 
@@ -164,9 +171,10 @@ void dxEnvironmentRender::OnFrame(CEnvironment& env)
     _RELEASE(e0);
     tsky1->surface_set(e1);
     _RELEASE(e1);
+#endif // USE_OGL
 
 // ******************** Environment params (setting)
-#if defined(USE_DX10) || defined(USE_DX11)
+#ifndef USE_DX9
 //	TODO: DX10: Implement environment parameters setting for DX10 (if necessary)
 #else //	USE_DX10
 
@@ -188,7 +196,7 @@ void dxEnvironmentRender::OnLoad()
     tonemap = RImplementation.Resources->_CreateTexture("$user$tonemap"); //. hack
 }
 
-void dxEnvironmentRender::OnUnload() { tonemap = 0; }
+void dxEnvironmentRender::OnUnload() { tonemap = nullptr; }
 void dxEnvironmentRender::RenderSky(CEnvironment& env)
 {
     // clouds_sh.create		("clouds","null");
@@ -206,7 +214,7 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
         clouds_geom.create(v_clouds_fvf, RCache.Vertex.Buffer(), RCache.Index.Buffer());
         env.bNeed_re_create_env = FALSE;
     }
-    GlobalEnv.Render->rmFar();
+    GEnv.Render->rmFar();
 
     dxEnvDescriptorMixerRender& mixRen = *(dxEnvDescriptorMixerRender*)&*env.CurrentEnv->m_pDescriptorMixer;
 
@@ -234,12 +242,24 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
     RCache.set_xform_world(mSky);
     RCache.set_Geometry(sh_2geom);
     RCache.set_Shader(sh_2sky);
-    //	RCache.set_Textures			(&env.CurrentEnv->sky_r_textures);
+#ifdef USE_OGL
+    if (HW.Caps.geometry.bVTF)
+        RCache.set_Textures(&mixRen.sky_r_textures);
+#else // USE_OGL
     RCache.set_Textures(&mixRen.sky_r_textures);
+#endif // USE_OGL
     RCache.Render(D3DPT_TRIANGLELIST, v_offset, 0, 12, i_offset, 20);
 
+#ifdef USE_OGL
+	// Sun must be rendered to generic0 only as it is done in DX
+    if (!RImplementation.o.dx10_msaa)
+        RImplementation.Target->u_setrt(RImplementation.Target->rt_Generic_0, nullptr, nullptr, HW.pBaseZB);
+    else
+        RImplementation.Target->u_setrt(RImplementation.Target->rt_Generic_0_r, nullptr, nullptr, RImplementation.Target->rt_MSAADepth->pZRT);
+#endif // USE_OGL
+
     // Sun
-    GlobalEnv.Render->rmNormal();
+    GEnv.Render->rmNormal();
 #if RENDER != R_R1
     //
     // This hack is done to make sure that the state is set for sure:
@@ -250,14 +270,22 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env)
     RCache.set_Z(TRUE);
     env.eff_LensFlare->Render(TRUE, FALSE, FALSE);
     RCache.set_Z(FALSE);
-#else
+#else // RENDER != R_R1
     env.eff_LensFlare->Render(TRUE, FALSE, FALSE);
-#endif
+#endif // RENDER != R_R1
+
+#ifdef USE_OGL
+    // set low/hi RTs for clouds
+    if (!RImplementation.o.dx10_msaa)
+        RImplementation.Target->u_setrt(RImplementation.Target->rt_Generic_0, RImplementation.Target->rt_Generic_1, nullptr, HW.pBaseZB);
+    else
+        RImplementation.Target->u_setrt(RImplementation.Target->rt_Generic_0_r, RImplementation.Target->rt_Generic_1_r, nullptr, RImplementation.Target->rt_MSAADepth->pZRT);
+ #endif // USE_OGL
 }
 
 void dxEnvironmentRender::RenderClouds(CEnvironment& env)
 {
-    GlobalEnv.Render->rmFar();
+    GEnv.Render->rmFar();
 
     Fmatrix mXFORM, mScale;
     mScale.scale(10, 0.4f, 10);
@@ -282,7 +310,7 @@ void dxEnvironmentRender::RenderClouds(CEnvironment& env)
 
     // Fill vertex buffer
     v_clouds* pv = (v_clouds*)RCache.Vertex.Lock(env.CloudsVerts.size(), clouds_geom.stride(), v_offset);
-    for (FvectorIt it = env.CloudsVerts.begin(); it != env.CloudsVerts.end(); it++, pv++)
+    for (auto it = env.CloudsVerts.begin(); it != env.CloudsVerts.end(); it++, pv++)
         pv->set(*it, C0, C1);
     RCache.Vertex.Unlock(env.CloudsVerts.size(), clouds_geom.stride());
 
@@ -294,7 +322,7 @@ void dxEnvironmentRender::RenderClouds(CEnvironment& env)
     RCache.set_Textures(&mixRen.clouds_r_textures);
     RCache.Render(D3DPT_TRIANGLELIST, v_offset, 0, env.CloudsVerts.size(), i_offset, env.CloudsIndices.size() / 3);
 
-    GlobalEnv.Render->rmNormal();
+    GEnv.Render->rmNormal();
 }
 
 void dxEnvironmentRender::OnDeviceCreate()
@@ -307,8 +335,13 @@ void dxEnvironmentRender::OnDeviceCreate()
 
 void dxEnvironmentRender::OnDeviceDestroy()
 {
-    tsky0->surface_set(NULL);
-    tsky1->surface_set(NULL);
+#ifdef USE_OGL
+    tsky0->surface_set(GL_TEXTURE_CUBE_MAP, 0);
+    tsky1->surface_set(GL_TEXTURE_CUBE_MAP, 0);
+#else
+    tsky0->surface_set(nullptr);
+    tsky1->surface_set(nullptr);
+#endif // USE_OGL
 
     sh_2sky.destroy();
     sh_2geom.destroy();

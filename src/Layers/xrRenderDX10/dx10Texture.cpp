@@ -1,17 +1,18 @@
 #include "stdafx.h"
 #pragma hdrstop
 
+#pragma warning(push)
 #pragma warning(disable : 4995)
 #include <d3dx9.h>
-#pragma warning(default : 4995)
+#pragma warning(pop)
 
 #include <D3DX10Tex.h>
 
 void fix_texture_name(LPSTR fn)
 {
     LPSTR _ext = strext(fn);
-    if (_ext && (!stricmp(_ext, ".tga") || !stricmp(_ext, ".dds") || !stricmp(_ext, ".bmp") ||
-        !stricmp(_ext, ".ogm")))
+    if (_ext && (!xr_stricmp(_ext, ".tga") || !xr_stricmp(_ext, ".dds") || !xr_stricmp(_ext, ".bmp") ||
+        !xr_stricmp(_ext, ".ogm")))
     {
         *_ext = 0;
     }
@@ -20,14 +21,14 @@ void fix_texture_name(LPSTR fn)
 int get_texture_load_lod(LPCSTR fn)
 {
     CInifile::Sect& sect = pSettings->r_section("reduce_lod_texture_list");
-    CInifile::SectCIt it_ = sect.Data.begin();
-    CInifile::SectCIt it_e_ = sect.Data.end();
+    auto it_ = sect.Data.cbegin();
+    auto it_e_ = sect.Data.cend();
 
     ENGINE_API bool is_enough_address_space_available();
     static bool enough_address_space_available = is_enough_address_space_available();
 
-    CInifile::SectCIt it = it_;
-    CInifile::SectCIt it_e = it_e_;
+    auto it = it_;
+    auto it_e = it_e_;
 
     for (; it != it_e; ++it)
     {
@@ -60,7 +61,7 @@ int get_texture_load_lod(LPCSTR fn)
         return 2;
 }
 
-u32 calc_texture_size(int lod, u32 mip_cnt, u32 orig_size)
+u32 calc_texture_size(int lod, u32 mip_cnt, size_t orig_size)
 {
     if (1 == mip_cnt)
         return orig_size;
@@ -317,7 +318,7 @@ ID3DBaseTexture* CRender::texture_load(LPCSTR fRName, u32& ret_msize, bool bStag
     // IDirect3DCubeTexture9*   pTextureCUBE    = NULL;
     string_path fn;
     // u32                      dwWidth,dwHeight;
-    u32 img_size = 0;
+    size_t img_size = 0;
     int img_loaded_lod = 0;
     // D3DFORMAT                fmt;
     u32 mip_cnt = u32(-1);
@@ -426,7 +427,7 @@ _DDS_CUBE:
 _DDS_2D:
 {
     // Check for LMAP and compress if needed
-    strlwr(fn);
+    xr_strlwr(fn);
 
     // Load   SYS-MEM-surface, bound to device restrictions
     // ID3DTexture2D*       T_sysmem;
@@ -451,14 +452,16 @@ _DDS_2D:
 #else
     D3DX10_IMAGE_LOAD_INFO LoadInfo;
 #endif
-    // LoadInfo.FirstMipLevel = img_loaded_lod;
     LoadInfo.Width = IMG.Width;
     LoadInfo.Height = IMG.Height;
 
+    // x64 crash workaround
+#ifdef XR_X64
+    LoadInfo.FirstMipLevel = img_loaded_lod;
+#else
     if (img_loaded_lod)
-    {
         Reduce(LoadInfo.Width, LoadInfo.Height, IMG.MipLevels, img_loaded_lod);
-    }
+#endif
 
     // LoadInfo.Usage = D3D_USAGE_IMMUTABLE;
     if (bStaging)

@@ -1,12 +1,12 @@
 #include "StdAfx.h"
 #include "UIOutfitInfo.h"
 #include "UIXmlInit.h"
-#include "UIStatic.h"
-#include "UIDoubleProgressBar.h"
+#include "xrUICore/Static/UIStatic.h"
+#include "xrUICore/ProgressBar/UIDoubleProgressBar.h"
 #include "CustomOutfit.h"
 #include "ActorHelmet.h"
 #include "string_table.h"
-#include "actor.h"
+#include "Actor.h"
 #include "ActorCondition.h"
 #include "player_hud.h"
 
@@ -14,7 +14,7 @@ LPCSTR immunity_names[] = {
     "burn_immunity", "shock_immunity", "chemical_burn_immunity", "radiation_immunity", "telepatic_immunity",
     "wound_immunity", "fire_wound_immunity",
     //	"strike_immunity",
-    //	"explosion_immunity",
+    "explosion_immunity", //Alundaio: uncommented
 };
 
 LPCSTR immunity_st_names[] = {
@@ -22,7 +22,7 @@ LPCSTR immunity_st_names[] = {
     "ui_inv_outfit_radiation_protection", "ui_inv_outfit_telepatic_protection", "ui_inv_outfit_wound_protection",
     "ui_inv_outfit_fire_wound_protection",
     //	"ui_inv_outfit_strike_protection",
-    //	"ui_inv_outfit_explosion_protection",
+    "ui_inv_outfit_explosion_protection", //Alundaio: uncommented
 };
 
 CUIOutfitImmunity::CUIOutfitImmunity()

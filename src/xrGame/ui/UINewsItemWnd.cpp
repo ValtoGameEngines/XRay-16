@@ -1,7 +1,7 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "UINewsItemWnd.h"
 #include "UIXmlInit.h"
-#include "UIStatic.h"
+#include "xrUICore/Static/UIStatic.h"
 #include "game_news.h"
 #include "date_time.h"
 #include "UIInventoryUtilities.h"
@@ -13,8 +13,8 @@ void CUINewsItemWnd::Init(CUIXml& uiXml, LPCSTR start_from)
 {
     CUIXmlInit::InitWindow(uiXml, start_from, 0, this);
 
-    XML_NODE* stored_root = uiXml.GetLocalRoot();
-    XML_NODE* node = uiXml.NavigateToNode(start_from, 0);
+    XML_NODE stored_root = uiXml.GetLocalRoot();
+    XML_NODE node = uiXml.NavigateToNode(start_from, 0);
     uiXml.SetLocalRoot(node);
 
     m_UIImage = UIHelper::CreateStatic(uiXml, "image", this);

@@ -1,9 +1,9 @@
 #include "StdAfx.h"
 #include "UIKeyBinding.h"
 #include "UIXmlInit.h"
-#include "xrUIXmlParser.h"
+#include "xrUICore/XML/xrUIXmlParser.h"
 #include "UIEditKeyBind.h"
-#include "UIScrollView.h"
+#include "xrUICore/ScrollView/UIScrollView.h"
 #include "xr_level_controller.h"
 #include "string_table.h"
 
@@ -36,8 +36,7 @@ void CUIKeyBinding::FillUpList(CUIXml& xml_doc_ui, LPCSTR path_ui)
 {
     string256 buf;
     CUIXml xml_doc;
-    CStringTable st;
-    xml_doc.Load(CONFIG_PATH, UI_PATH, "ui_keybinding.xml");
+    xml_doc.Load(CONFIG_PATH, UI_PATH, UI_PATH_DEFAULT, "ui_keybinding.xml");
 
     int groupsCount = xml_doc.GetNodesNum("", 0, "group");
 
@@ -54,7 +53,7 @@ void CUIKeyBinding::FillUpList(CUIXml& xml_doc_ui, LPCSTR path_ui)
 
         // add group items
         int commandsCount = xml_doc.GetNodesNum("group", i, "command");
-        XML_NODE* tab_node = xml_doc.NavigateToNode("group", i);
+        XML_NODE tab_node = xml_doc.NavigateToNode("group", i);
         xml_doc.SetLocalRoot(tab_node);
 
         for (int j = 0; j < commandsCount; ++j)
@@ -104,7 +103,7 @@ void CUIKeyBinding::FillUpList(CUIXml& xml_doc_ui, LPCSTR path_ui)
 void CUIKeyBinding::CheckStructure(CUIXml& xml_doc)
 {
     bool first = true;
-    CUITextWnd* pItem = false;
+    CUITextWnd* pItem = nullptr;
 
     for (int i = 0; true; i++)
     {
@@ -148,7 +147,7 @@ bool CUIKeyBinding::IsActionExist(LPCSTR action, CUIXml& xml_doc)
     {
         // add group items
         int commandsCount = xml_doc.GetNodesNum("group", i, "command");
-        XML_NODE* tab_node = xml_doc.NavigateToNode("group", i);
+        XML_NODE tab_node = xml_doc.NavigateToNode("group", i);
         xml_doc.SetLocalRoot(tab_node);
 
         for (int j = 0; j < commandsCount; ++j)

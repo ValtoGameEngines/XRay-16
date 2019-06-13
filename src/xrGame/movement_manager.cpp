@@ -15,14 +15,15 @@
 #include "level_path_manager.h"
 #include "detail_path_manager.h"
 #include "patrol_path_manager.h"
-#include "xrmessages.h"
+#include "xrMessages.h"
 #include "xrAICore/Navigation/ai_object_location.h"
-#include "custommonster.h"
+#include "CustomMonster.h"
 #include "location_manager.h"
 #include "level_path_builder.h"
 #include "detail_path_builder.h"
 #include "xrEngine/profiler.h"
 #include "mt_config.h"
+#include "xrNetServer/NET_Messages.h"
 
 // Lain: added
 #include "steering_behaviour.h"

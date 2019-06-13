@@ -1,12 +1,12 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "UIDialogHolder.h"
 #include "ui/UIDialogWnd.h"
 #include "UIGameCustom.h"
-#include "UICursor.h"
+#include "xrUICore/Cursor/UICursor.h"
 #include "Level.h"
-#include "actor.h"
+#include "Actor.h"
 #include "xr_level_controller.h"
-#include "xrEngine/CustomHud.h"
+#include "xrEngine/CustomHUD.h"
 
 dlgItem::dlgItem(CUIWindow* pWnd)
 {
@@ -202,6 +202,15 @@ void CDialogHolder::StartDialog(CUIDialogWnd* pDialog, bool bDoHideIndicators)
 }
 
 void CDialogHolder::StopDialog(CUIDialogWnd* pDialog) { StopMenu(pDialog); }
+
+void CDialogHolder::StartStopMenu(CUIDialogWnd* pDialog, bool bDoHideIndicators)
+{
+    if (pDialog->IsShown())
+        StopDialog(pDialog);
+    else
+        StartDialog(pDialog, bDoHideIndicators);
+}
+
 void CDialogHolder::OnFrame()
 {
     m_b_in_update = true;
@@ -339,7 +348,7 @@ bool CDialogHolder::IR_UIOnKeyboardHold(int dik)
     return true;
 }
 
-bool CDialogHolder::IR_UIOnMouseWheel(int direction)
+bool CDialogHolder::IR_UIOnMouseWheel(int x, int y)
 {
     CUIDialogWnd* TIR = TopInputReceiver();
     if (!TIR)
@@ -349,7 +358,18 @@ bool CDialogHolder::IR_UIOnMouseWheel(int direction)
 
     Fvector2 pos = GetUICursor().GetCursorPosition();
 
-    TIR->OnMouseAction(pos.x, pos.y, (direction > 0) ? WINDOW_MOUSE_WHEEL_UP : WINDOW_MOUSE_WHEEL_DOWN);
+    // Vertical scroll is in higher priority
+    EUIMessages wheelMessage;
+    if (x > 0)
+        wheelMessage = WINDOW_MOUSE_WHEEL_UP;
+    else if (x < 0)
+        wheelMessage = WINDOW_MOUSE_WHEEL_DOWN;
+    else if (y > 0)
+        wheelMessage = WINDOW_MOUSE_WHEEL_RIGHT;
+    else
+        wheelMessage = WINDOW_MOUSE_WHEEL_LEFT;
+
+    TIR->OnMouseAction(pos.x, pos.y, wheelMessage);
     return true;
 }
 

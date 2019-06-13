@@ -1,6 +1,15 @@
 #include "stdafx.h"
 #include "string_concatenations.h"
 
+#if defined(LINUX) || defined(FREEBSD)
+int _cdecl _resetstkoflw(void)
+{
+    int stack_addr;
+
+    return 0;
+}
+#endif
+
 namespace xray
 {
 namespace core
@@ -9,15 +18,15 @@ namespace detail
 {
 namespace strconcat_error
 {
-void process(u32 const index, u32 const count, LPCSTR* strings)
+void process(u32 const index, u32 const count, pcstr* strings)
 {
     u32 const max_string_size = 1024;
-    LPSTR temp = (LPSTR)_alloca((count * (max_string_size + 4) + 1) * sizeof(**strings));
-    LPSTR k = temp;
+    pstr temp = (pstr)_alloca((count * (max_string_size + 4) + 1) * sizeof(**strings));
+    pstr k = temp;
     *k++ = '[';
     for (u32 i = 0; i < count; ++i)
     {
-        for (LPCSTR j = strings[i], e = j + max_string_size; *j && j < e; ++k, ++j)
+        for (pcstr j = strings[i], e = j + max_string_size; *j && j < e; ++k, ++j)
             *k = *j;
 
         *k++ = ']';
@@ -36,7 +45,7 @@ void process(u32 const index, u32 const count, LPCSTR* strings)
 }
 
 template <u32 count>
-static inline void process(LPSTR& i, LPCSTR e, u32 const index, LPCSTR (&strings)[count])
+static inline void process(pstr& i, pcstr e, u32 const index, pcstr (&strings)[count])
 {
     VERIFY(i <= e);
     VERIFY(index < count);
@@ -69,6 +78,7 @@ int stack_overflow_exception_filter(int exception_code)
 
 void check_stack_overflow(u32 stack_increment)
 {
+#if defined(WINDOWS)
     __try
     {
         void* p = _alloca(stack_increment);
@@ -78,6 +88,7 @@ void check_stack_overflow(u32 stack_increment)
     {
         _resetstkoflw();
     }
+#endif
 }
 
 void string_tupples::error_process() const
@@ -113,17 +124,17 @@ void string_tupples::error_process() const
 using namespace xray::core::detail;
 
 // dest = S1+S2
-LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2)
+pstr strconcat(int dest_sz, pstr dest, pcstr S1, pcstr S2)
 {
     VERIFY(dest);
     VERIFY(S1);
     VERIFY(S2);
 
-    LPCSTR strings[] = {S1, S2};
+    pcstr strings[] = {S1, S2};
 
-    LPSTR i = dest;
-    LPCSTR e = dest + dest_sz;
-    LPCSTR j;
+    pstr i = dest;
+    pcstr e = dest + dest_sz;
+    pcstr j;
     for (j = S1; *j && i < e; ++i, ++j)
         *i = *j;
 
@@ -140,18 +151,18 @@ LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2)
 }
 
 // dest = S1+S2+S3
-LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2, const char* S3)
+pstr strconcat(int dest_sz, pstr dest, pcstr S1, pcstr S2, pcstr S3)
 {
     VERIFY(dest);
     VERIFY(S1);
     VERIFY(S2);
     VERIFY(S3);
 
-    LPCSTR strings[] = {S1, S2, S3};
+    pcstr strings[] = {S1, S2, S3};
 
-    LPSTR i = dest;
-    LPCSTR e = dest + dest_sz;
-    LPCSTR j;
+    pstr i = dest;
+    pcstr e = dest + dest_sz;
+    pcstr j;
     for (j = S1; *j && i < e; ++i, ++j)
         *i = *j;
 
@@ -173,7 +184,7 @@ LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2, const c
 }
 
 // dest = S1+S2+S3+S4
-LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2, const char* S3, const char* S4)
+pstr strconcat(int dest_sz, pstr dest, pcstr S1, pcstr S2, pcstr S3, pcstr S4)
 {
     VERIFY(dest);
     VERIFY(S1);
@@ -181,11 +192,11 @@ LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2, const c
     VERIFY(S3);
     VERIFY(S4);
 
-    LPCSTR strings[] = {S1, S2, S3, S4};
+    pcstr strings[] = {S1, S2, S3, S4};
 
-    LPSTR i = dest;
-    LPCSTR e = dest + dest_sz;
-    LPCSTR j;
+    pstr i = dest;
+    pcstr e = dest + dest_sz;
+    pcstr j;
     for (j = S1; *j && i < e; ++i, ++j)
         *i = *j;
 
@@ -212,7 +223,7 @@ LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2, const c
 }
 
 // dest = S1+S2+S3+S4+S5
-LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2, const char* S3, const char* S4, const char* S5)
+pstr strconcat(int dest_sz, pstr dest, pcstr S1, pcstr S2, pcstr S3, pcstr S4, pcstr S5)
 {
     VERIFY(dest);
     VERIFY(S1);
@@ -221,11 +232,11 @@ LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2, const c
     VERIFY(S4);
     VERIFY(S5);
 
-    LPCSTR strings[] = {S1, S2, S3, S4, S5};
+    pcstr strings[] = {S1, S2, S3, S4, S5};
 
-    LPSTR i = dest;
-    LPCSTR e = dest + dest_sz;
-    LPCSTR j;
+    pstr i = dest;
+    pcstr e = dest + dest_sz;
+    pcstr j;
     for (j = S1; *j && i < e; ++i, ++j)
         *i = *j;
 
@@ -257,8 +268,8 @@ LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2, const c
 }
 
 // dest = S1+S2+S3+S4+S5+S6
-LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2, const char* S3, const char* S4, const char* S5,
-    const char* S6)
+pstr strconcat(int dest_sz, pstr dest, pcstr S1, pcstr S2, pcstr S3, pcstr S4, pcstr S5,
+    pcstr S6)
 {
     VERIFY(dest);
     VERIFY(S1);
@@ -268,11 +279,11 @@ LPSTR strconcat(int dest_sz, char* dest, const char* S1, const char* S2, const c
     VERIFY(S5);
     VERIFY(S6);
 
-    LPCSTR strings[] = {S1, S2, S3, S4, S5, S6};
+    pcstr strings[] = {S1, S2, S3, S4, S5, S6};
 
-    LPSTR i = dest;
-    LPCSTR e = dest + dest_sz;
-    LPCSTR j;
+    pstr i = dest;
+    pcstr e = dest + dest_sz;
+    pcstr j;
     for (j = S1; *j && i < e; ++i, ++j)
         *i = *j;
 

@@ -1,5 +1,5 @@
-#include "stdafx.h"
-#include "artefact.h"
+#include "StdAfx.h"
+#include "Artefact.h"
 #include "xrPhysics/PhysicsShell.h"
 #include "PhysicsShellHolder.h"
 #include "game_cl_base.h"
@@ -7,11 +7,11 @@
 #include "Include/xrRender/Kinematics.h"
 #include "Include/xrRender/KinematicsAnimated.h"
 
-#include "inventory.h"
+#include "Inventory.h"
 #include "Level.h"
 #include "xrAICore/Navigation/ai_object_location.h"
 #include "xrServer_Objects_ALife_Monsters.h"
-#include "xrPhysics/iphworld.h"
+#include "xrPhysics/IPHWorld.h"
 #include "restriction_space.h"
 #include "xrEngine/IGame_Persistent.h"
 
@@ -263,8 +263,8 @@ void CArtefact::StartLights()
         return;
 
     VERIFY(m_pTrailLight == NULL);
-    m_pTrailLight = GlobalEnv.Render->light_create();
-    bool const b_light_shadow = !!pSettings->r_bool(cNameSect(), "idle_light_shadow");
+    m_pTrailLight = GEnv.Render->light_create();
+    bool const b_light_shadow = pSettings->read_if_exists<bool>(cNameSect(), "idle_light_shadow", false);
 
     m_pTrailLight->set_shadow(b_light_shadow);
 
@@ -332,8 +332,8 @@ void CArtefact::MoveTo(Fvector const& position)
     // m_bInInterpolation = false;
 }
 
-#include "inventoryOwner.h"
-#include "Entity_alive.h"
+#include "InventoryOwner.h"
+#include "entity_alive.h"
 void CArtefact::UpdateXForm()
 {
     if (Device.dwFrame != dwXF_Frame)
@@ -410,15 +410,18 @@ bool CArtefact::Action(u16 cmd, u32 flags)
     return inherited::Action(cmd, flags);
 }
 
-void CArtefact::OnStateSwitch(u32 S)
+void CArtefact::OnStateSwitch(u32 S, u32 oldState)
 {
-    inherited::OnStateSwitch(S);
+    inherited::OnStateSwitch(S, oldState);
     switch (S)
     {
     case eShowing: { PlayHUDMotion("anm_show", FALSE, this, S);
     }
     break;
-    case eHiding: { PlayHUDMotion("anm_hide", FALSE, this, S);
+    case eHiding:
+    {
+        if (oldState != eHiding)
+            PlayHUDMotion("anm_hide", FALSE, this, S);
     }
     break;
     case eActivating: { PlayHUDMotion("anm_activate", FALSE, this, S);

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #include "bloodsucker.h"
 #include "bloodsucker_state_manager.h"
 #include "Actor.h"
@@ -14,16 +14,13 @@
 #include "game_object_space.h"
 #include "ai/monsters/control_animation_base.h"
 #include "ai/monsters/control_movement_base.h"
-#include "ai/Monsters/control_rotation_jump.h"
+#include "ai/monsters/control_rotation_jump.h"
 #include "sound_player.h"
-#include "xrEngine/camerabase.h"
+#include "xrEngine/CameraBase.h"
 #include "xr_level_controller.h"
 #include "ActorCondition.h"
 #include "PHDestroyable.h"
 #include "CharacterPhysicsSupport.h"
-#ifdef DEBUG
-#include <dinput.h>
-#endif // DEBUG
 
 namespace detail
 {
@@ -430,7 +427,7 @@ void CAI_Bloodsucker::SatisfyVampire()
     float health = conditions().GetHealth();
     health += m_vampire_gain_health;
 
-    health = _min(health, conditions().GetMaxHealth());
+    health = std::min(health, conditions().GetMaxHealth());
     conditions().SetHealth(health);
 }
 
@@ -859,11 +856,11 @@ void CAI_Bloodsucker::debug_on_key(int key)
 {
     switch (key)
     {
-    case DIK_MINUS:
+    case SDL_SCANCODE_MINUS:
         Actor()->cam_Active()->Move(Random.randI(2) ? kRIGHT : kLEFT, PI_DIV_2);
         // set_alien_control(true);
         break;
-    case DIK_EQUALS:
+    case SDL_SCANCODE_EQUALS:
         Actor()->cam_Active()->Move(Random.randI(2) ? kUP : kDOWN, PI_DIV_2);
         // set_alien_control(false);
         break;

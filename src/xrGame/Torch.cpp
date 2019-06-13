@@ -1,21 +1,21 @@
-#include "stdafx.h"
-#include "torch.h"
-#include "entity.h"
-#include "actor.h"
+#include "StdAfx.h"
+#include "Torch.h"
+#include "Entity.h"
+#include "Actor.h"
 #include "xrEngine/LightAnimLibrary.h"
 #include "xrPhysics/PhysicsShell.h"
-#include "xrserver_objects_alife_items.h"
+#include "xrServer_Objects_ALife_Items.h"
 #include "ai_sounds.h"
 
 #include "Level.h"
 #include "Include/xrRender/Kinematics.h"
-#include "xrEngine/camerabase.h"
+#include "xrEngine/CameraBase.h"
 #include "xrEngine/xr_collide_form.h"
-#include "inventory.h"
+#include "Inventory.h"
 #include "game_base_space.h"
 
 #include "UIGameCustom.h"
-#include "actorEffector.h"
+#include "ActorEffector.h"
 #include "CustomOutfit.h"
 #include "ActorHelmet.h"
 
@@ -28,19 +28,17 @@ static const float OPTIMIZATION_DISTANCE = 100.f;
 
 static bool stalker_use_dynamic_lights = false;
 
-ENGINE_API int g_current_renderer;
-
 CTorch::CTorch(void)
 {
-    light_render = GlobalEnv.Render->light_create();
+    light_render = GEnv.Render->light_create();
     light_render->set_type(IRender_Light::SPOT);
     light_render->set_shadow(true);
-    light_omni = GlobalEnv.Render->light_create();
+    light_omni = GEnv.Render->light_create();
     light_omni->set_type(IRender_Light::POINT);
     light_omni->set_shadow(false);
 
     m_switched_on = false;
-    glow_render = GlobalEnv.Render->glow_create();
+    glow_render = GEnv.Render->glow_create();
     lanim = 0;
     fBrightness = 1.f;
 
@@ -50,7 +48,7 @@ CTorch::CTorch(void)
 
     // Disabling shift by x and z axes for 1st render,
     // because we don't have dynamic lighting in it.
-    if (g_current_renderer == 1)
+    if (GEnv.CurrentRenderer == 1)
     {
         TORCH_OFFSET.x = 0;
         TORCH_OFFSET.z = 0;
@@ -115,7 +113,7 @@ void CTorch::SwitchNightVision(bool vision_on, bool use_sounds)
     for (u32 i = 0; i < cnt; ++i)
     {
         _GetItem(disabled_names, i, tmp);
-        if (0 == stricmp(tmp, curr_map))
+        if (0 == xr_stricmp(tmp, curr_map))
         {
             b_allow = false;
             break;
@@ -210,9 +208,7 @@ BOOL CTorch::net_Spawn(CSE_Abstract* DC)
     if (!inherited::net_Spawn(DC))
         return (FALSE);
 
-    bool b_r2 = !!psDeviceFlags.test(rsR2);
-    b_r2 |= !!psDeviceFlags.test(rsR3);
-    b_r2 |= !!psDeviceFlags.test(rsR4);
+    bool b_r2 = !psDeviceFlags.test(rsR1);
 
     IKinematics* K = smart_cast<IKinematics*>(Visual());
     CInifile* pUserData = K->LL_UserData();
@@ -460,7 +456,7 @@ void CTorch::afterDetach()
     inherited::afterDetach();
     Switch(false);
 }
-void CTorch::renderable_Render() { inherited::renderable_Render(); }
+
 void CTorch::enable(bool value)
 {
     inherited::enable(value);

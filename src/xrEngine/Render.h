@@ -3,19 +3,25 @@
 #include "xrEngine/Engine.h"
 #include "xrCDB/Frustum.h"
 #include "vis_common.h"
-#include "Include/xrAPI/xrAPI.h"
 #include "Include/xrRender/FactoryPtr.h"
+#include "xrCore/xr_resource.h"
+#include "SDL.h"
+
 class IUIShader;
 typedef FactoryPtr<IUIShader> wm_shader;
 // refs
 class ENGINE_API IRenderable;
 struct ENGINE_API FSlideWindowItem;
 
-// Igor
+// fwd. decl.
 class IRenderVisual;
 class IKinematics;
 class IGameFont;
 class IPerformanceAlert;
+template <class T> class _box2; typedef _box2<float> Fbox2;
+struct Fcolor;
+class IReader;
+class CMemoryWriter;
 
 #ifndef _EDITOR
 extern const float fLightSmoothFactor;
@@ -283,8 +289,8 @@ public:
 
     // virtual IDirect3DBaseTexture9* texture_load (LPCSTR fname, u32& msize) = 0;
     void shader_option_skinning(s32 mode) { m_skinning = mode; }
-    virtual HRESULT shader_compile(LPCSTR name, const DWORD* pSrcData, UINT SrcDataLen, LPCSTR pFunctionName,
-        LPCSTR pTarget, DWORD Flags, void*& result) = 0;
+    virtual HRESULT shader_compile(LPCSTR name, IReader* fs, LPCSTR pFunctionName, LPCSTR pTarget, DWORD Flags,
+        void*& result) = 0;
 
     // Information
     virtual void DumpStatistics(IGameFont& font, IPerformanceAlert* alert) = 0;
@@ -359,6 +365,9 @@ public:
     virtual void Calculate() = 0;
     virtual void Render() = 0;
 
+    virtual void BeforeWorldRender() = 0; //--#SM+#-- Перед рендерингом мира
+    virtual void AfterWorldRender() = 0; //--#SM+#-- После рендеринга мира (до UI)
+
     virtual void Screenshot(ScreenshotMode mode = SM_NORMAL, LPCSTR name = 0) = 0;
     virtual void Screenshot(ScreenshotMode mode, CMemoryWriter& memory_writer) = 0;
     virtual void ScreenshotAsyncBegin() = 0;
@@ -368,10 +377,11 @@ public:
     virtual void rmNear() = 0;
     virtual void rmFar() = 0;
     virtual void rmNormal() = 0;
-    virtual u32 memory_usage() = 0;
+    virtual u32 active_phase () = 0;
 
     // Constructor/destructor
     virtual ~IRender() {}
+
 protected:
     virtual void ScreenshotImpl(ScreenshotMode mode, LPCSTR name, CMemoryWriter* memory_writer) = 0;
 
@@ -388,12 +398,13 @@ public:
     virtual void OnDeviceDestroy(bool bKeepTextures) = 0;
     virtual void ValidateHW() = 0;
     virtual void DestroyHW() = 0;
-    virtual void Reset(HWND hWnd, u32& dwWidth, u32& dwHeight, float& fWidth_2, float& fHeight_2) = 0;
+    virtual void Reset(SDL_Window* hWnd, u32& dwWidth, u32& dwHeight, float& fWidth_2, float& fHeight_2) = 0;
     //	Init
     virtual void SetupStates() = 0;
     virtual void OnDeviceCreate(LPCSTR shName) = 0;
-    virtual void Create(HWND hWnd, u32& dwWidth, u32& dwHeight, float& fWidth_2, float& fHeight_2, bool) = 0;
+    virtual void Create(SDL_Window* hWnd, u32& dwWidth, u32& dwHeight, float& fWidth_2, float& fHeight_2) = 0;
     virtual void SetupGPU(bool bForceGPU_SW, bool bForceGPU_NonPure, bool bForceGPU_REF) = 0;
+
     //	Overdraw
     virtual void overdrawBegin() = 0;
     virtual void overdrawEnd() = 0;
@@ -413,10 +424,13 @@ public:
     virtual DeviceState GetDeviceState() = 0;
     virtual bool GetForceGPU_REF() = 0;
     virtual u32 GetCacheStatPolys() = 0;
+    virtual void BeforeFrame() = 0;
     virtual void Begin() = 0;
     virtual void Clear() = 0;
     virtual void End() = 0;
     virtual void ClearTarget() = 0;
     virtual void SetCacheXform(Fmatrix& mView, Fmatrix& mProject) = 0;
     virtual void OnAssetsChanged() = 0;
+
+    virtual void MakeContextCurrent(bool acquire) = 0;
 };

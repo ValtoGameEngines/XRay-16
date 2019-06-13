@@ -1,14 +1,14 @@
 #include "pch_script.h"
-#include "uiiteminfo.h"
-#include "uistatic.h"
+#include "UIItemInfo.h"
+#include "xrUICore/Static/UIStatic.h"
 #include "UIXmlInit.h"
-#include "UIProgressBar.h"
-#include "UIScrollView.h"
-#include "UIFrameWindow.h"
+#include "xrUICore/ProgressBar/UIProgressBar.h"
+#include "xrUICore/ScrollView/UIScrollView.h"
+#include "xrUICore/Windows/UIFrameWindow.h"
 #include "ai_space.h"
 #include "alife_simulator.h"
 #include "string_table.h"
-#include "Inventory_Item.h"
+#include "inventory_item.h"
 #include "UIInventoryUtilities.h"
 #include "PhysicsShellHolder.h"
 #include "UIWpnParams.h"
@@ -21,6 +21,8 @@
 #include "ActorHelmet.h"
 #include "eatable_item.h"
 #include "UICellItem.h"
+#include "xrGame/game_type.h"
+#include "UIHelper.h"
 
 extern const LPCSTR g_inventory_upgrade_xml;
 
@@ -62,8 +64,7 @@ CUIItemInfo::~CUIItemInfo()
 void CUIItemInfo::InitItemInfo(LPCSTR xml_name)
 {
     CUIXml uiXml;
-    uiXml.Load(CONFIG_PATH, UI_PATH, xml_name);
-    CUIXmlInit xml_init;
+    uiXml.Load(CONFIG_PATH, UI_PATH, UI_PATH_DEFAULT, xml_name);
 
     if (uiXml.NavigateToNode("main_frame", 0))
     {
@@ -79,45 +80,15 @@ void CUIItemInfo::InitItemInfo(LPCSTR xml_name)
 
         delay = uiXml.ReadAttribInt("main_frame", 0, "delay", 500);
     }
-    if (uiXml.NavigateToNode("background_frame", 0))
-    {
-        UIBackground = new CUIFrameWindow();
-        UIBackground->SetAutoDelete(true);
-        AttachChild(UIBackground);
-        xml_init.InitFrameWindow(uiXml, "background_frame", 0, UIBackground);
-    }
-    m_complex_desc = false;
-    if (uiXml.NavigateToNode("static_name", 0))
-    {
-        UIName = new CUITextWnd();
-        AttachChild(UIName);
-        UIName->SetAutoDelete(true);
-        xml_init.InitTextWnd(uiXml, "static_name", 0, UIName);
+    UIBackground = UIHelper::CreateFrameWindow(uiXml, "background_frame", this, false);
+
+    UIName = UIHelper::CreateTextWnd(uiXml, "static_name", this, false);
+    if (UIName)
         m_complex_desc = (uiXml.ReadAttribInt("static_name", 0, "complex_desc", 0) == 1);
-    }
-    if (uiXml.NavigateToNode("static_weight", 0))
-    {
-        UIWeight = new CUITextWnd();
-        AttachChild(UIWeight);
-        UIWeight->SetAutoDelete(true);
-        xml_init.InitTextWnd(uiXml, "static_weight", 0, UIWeight);
-    }
 
-    if (uiXml.NavigateToNode("static_cost", 0))
-    {
-        UICost = new CUITextWnd();
-        AttachChild(UICost);
-        UICost->SetAutoDelete(true);
-        xml_init.InitTextWnd(uiXml, "static_cost", 0, UICost);
-    }
-
-    if (uiXml.NavigateToNode("static_no_trade", 0))
-    {
-        UITradeTip = new CUITextWnd();
-        AttachChild(UITradeTip);
-        UITradeTip->SetAutoDelete(true);
-        xml_init.InitTextWnd(uiXml, "static_no_trade", 0, UITradeTip);
-    }
+    UIWeight = UIHelper::CreateTextWnd(uiXml, "static_weight", this, false);
+    UICost = UIHelper::CreateTextWnd(uiXml, "static_cost", this, false);
+    UITradeTip = UIHelper::CreateTextWnd(uiXml, "static_no_trade", this, false);
 
     if (uiXml.NavigateToNode("descr_list", 0))
     {
@@ -148,8 +119,8 @@ void CUIItemInfo::InitItemInfo(LPCSTR xml_name)
         UIDesc->SetAutoDelete(true);
         m_desc_info.bShowDescrText = !!uiXml.ReadAttribInt("descr_list", 0, "only_text_info", 1);
         m_b_FitToHeight = !!uiXml.ReadAttribInt("descr_list", 0, "fit_to_height", 0);
-        xml_init.InitScrollView(uiXml, "descr_list", 0, UIDesc);
-        xml_init.InitFont(uiXml, "descr_list:font", 0, m_desc_info.uDescClr, m_desc_info.pDescFont);
+        CUIXmlInit::InitScrollView(uiXml, "descr_list", 0, UIDesc);
+        CUIXmlInit::InitFont(uiXml, "descr_list:font", 0, m_desc_info.uDescClr, m_desc_info.pDescFont);
     }
 
     if (uiXml.NavigateToNode("image_static", 0))
@@ -157,7 +128,7 @@ void CUIItemInfo::InitItemInfo(LPCSTR xml_name)
         UIItemImage = new CUIStatic();
         AttachChild(UIItemImage);
         UIItemImage->SetAutoDelete(true);
-        xml_init.InitStatic(uiXml, "image_static", 0, UIItemImage);
+        CUIXmlInit::InitStatic(uiXml, "image_static", 0, UIItemImage);
         UIItemImage->TextureOn();
 
         UIItemImage->TextureOff();
@@ -169,7 +140,7 @@ void CUIItemInfo::InitItemInfo(LPCSTR xml_name)
         UIOutfitInfo->InitFromXml(uiXml);
     }
 
-    xml_init.InitAutoStaticGroup(uiXml, "auto", 0, this);
+    CUIXmlInit::InitAutoStaticGroup(uiXml, "auto", 0, this);
 }
 
 void CUIItemInfo::InitItemInfo(Fvector2 pos, Fvector2 size, LPCSTR xml_name)
@@ -179,18 +150,17 @@ void CUIItemInfo::InitItemInfo(Fvector2 pos, Fvector2 size, LPCSTR xml_name)
     InitItemInfo(xml_name);
 }
 
-bool IsGameTypeSingle();
-
 void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem, u32 item_price, LPCSTR trade_tip)
 {
     if (!pCellItem)
     {
-        m_pInvItem = NULL;
+        m_pInvItem = nullptr;
         Enable(false);
         return;
     }
 
-    PIItem pInvItem = (PIItem)pCellItem->m_pData;
+    PIItem pInvItem = static_cast<PIItem>(pCellItem->m_pData);
+
     m_pInvItem = pInvItem;
     Enable(NULL != m_pInvItem);
     if (!m_pInvItem)
@@ -207,7 +177,7 @@ void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem,
     }
     if (UIWeight)
     {
-        LPCSTR kg_str = CStringTable().translate("st_kg").c_str();
+        LPCSTR kg_str = StringTable().translate("st_kg").c_str();
         float weight = pInvItem->Weight();
 
         if (!weight)
@@ -266,7 +236,7 @@ void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem,
             UITradeTip->Show(false);
         else
         {
-            UITradeTip->SetText(CStringTable().translate(trade_tip).c_str());
+            UITradeTip->SetText(StringTable().translate(trade_tip).c_str());
             UITradeTip->AdjustHeightToText();
             UITradeTip->SetWndPos(pos);
             UITradeTip->Show(true);

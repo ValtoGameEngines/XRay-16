@@ -2,8 +2,8 @@
 #pragma hdrstop
 
 #include "ResourceManager.h"
-#include "blenders\Blender_Recorder.h"
-#include "blenders\Blender.h"
+#include "blenders/Blender_Recorder.h"
+#include "blenders/Blender.h"
 
 void fix_texture_name(LPSTR fn);
 
@@ -27,7 +27,7 @@ void CBlender_Compile::r_Pass(LPCSTR _vs, LPCSTR _ps, bool bFog, BOOL bZtest, BO
     SVS* vs = RImplementation.Resources->_CreateVS(_vs);
     dest.ps = ps;
     dest.vs = vs;
-#if defined(USE_DX10) || defined(USE_DX11)
+#ifndef USE_DX9
     SGS* gs = RImplementation.Resources->_CreateGS("null");
     dest.gs = gs;
 #ifdef USE_DX11
@@ -40,7 +40,7 @@ void CBlender_Compile::r_Pass(LPCSTR _vs, LPCSTR _ps, bool bFog, BOOL bZtest, BO
     ctable.merge(&vs->constants);
 
     // Last Stage - disable
-    if (0 == stricmp(_ps, "null"))
+    if (0 == xr_stricmp(_ps, "null"))
     {
         RS.SetTSS(0, D3DTSS_COLOROP, D3DTOP_DISABLE);
         RS.SetTSS(0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
@@ -69,13 +69,10 @@ void CBlender_Compile::r_ColorWriteEnable(bool cR, bool cG, bool cB, bool cA)
     RS.SetRS(D3DRS_COLORWRITEENABLE3, Mask);
 }
 
-#if !defined(USE_DX10) && !defined(USE_DX11)
 u32 CBlender_Compile::i_Sampler(LPCSTR _name)
 {
-    //
     string256 name;
     xr_strcpy(name, _name);
-    //. andy	if (strext(name)) *strext(name)=0;
     fix_texture_name(name);
 
     // Find index
@@ -90,11 +87,13 @@ u32 CBlender_Compile::i_Sampler(LPCSTR _name)
     // while (stage>=passTextures.size())	passTextures.push_back		(NULL);
     return stage;
 }
+
 void CBlender_Compile::i_Texture(u32 s, LPCSTR name)
 {
     if (name)
-        passTextures.push_back(mk_pair(s, ref_texture(RImplementation.Resources->_CreateTexture(name))));
+        passTextures.push_back(std::make_pair(s, ref_texture(RImplementation.Resources->_CreateTexture(name))));
 }
+
 void CBlender_Compile::i_Projective(u32 s, bool b)
 {
     if (b)
@@ -102,6 +101,7 @@ void CBlender_Compile::i_Projective(u32 s, bool b)
     else
         RS.SetTSS(s, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
 }
+
 void CBlender_Compile::i_Address(u32 s, u32 address)
 {
     RS.SetSAMP(s, D3DSAMP_ADDRESSU, address);
@@ -118,6 +118,7 @@ void CBlender_Compile::i_Filter(u32 s, u32 _min, u32 _mip, u32 _mag)
     i_Filter_Mip(s, _mip);
     i_Filter_Mag(s, _mag);
 }
+
 u32 CBlender_Compile::r_Sampler(
     LPCSTR _name, LPCSTR texture, bool b_ps1x_ProjectiveDivide, u32 address, u32 fmin, u32 fmip, u32 fmag)
 {
@@ -179,10 +180,9 @@ void CBlender_Compile::r_End()
     dest.constants = RImplementation.Resources->_CreateConstantTable(ctable);
     dest.state = RImplementation.Resources->_CreateState(RS.GetContainer());
     dest.T = RImplementation.Resources->_CreateTextureList(passTextures);
-    dest.C = 0;
+    dest.C = nullptr;
 #ifdef _EDITOR
     dest.M = 0;
 #endif
     SH->passes.push_back(RImplementation.Resources->_CreatePass(dest));
 }
-#endif //	USE_DX10

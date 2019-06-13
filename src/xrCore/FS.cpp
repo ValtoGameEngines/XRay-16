@@ -1,14 +1,20 @@
 #include "stdafx.h"
 #pragma hdrstop
 
-#include "fs_internal.h"
+#include "FS_internal.h"
 
+#pragma warning(push)
 #pragma warning(disable : 4995)
+#if defined(WINDOWS)
 #include <io.h>
 #include <direct.h>
+#elif defined(LINUX)
+#include <sys/mman.h>
+#endif
+#include <sys/stat.h>
 #include <fcntl.h>
-#include <sys\stat.h>
-#pragma warning(default : 4995)
+
+#pragma warning(pop)
 
 #ifdef M_BORLAND
 #define O_SEQUENTIAL 0
@@ -71,21 +77,22 @@ XRCORE_API void dump_file_mappings()
 // Tools
 //////////////////////////////////////////////////////////////////////
 //---------------------------------------------------
-void VerifyPath(LPCSTR path)
+void VerifyPath(pcstr path)
 {
     string1024 tmp;
     for (int i = 0; path[i]; i++)
     {
-        if (path[i] != '\\' || i == 0)
+        if (path[i] != _DELIMITER || i == 0)
             continue;
         CopyMemory(tmp, path, i);
         tmp[i] = 0;
+        convert_path_separators(tmp);
         _mkdir(tmp);
     }
 }
 
 #ifdef _EDITOR
-bool file_handle_internal(LPCSTR file_name, u32& size, int& hFile)
+bool file_handle_internal(pcstr file_name, size_t& size, int& hFile)
 {
     hFile = _open(file_name, O_RDONLY | O_BINARY | O_SEQUENTIAL);
     if (hFile <= 0)
@@ -100,12 +107,21 @@ bool file_handle_internal(LPCSTR file_name, u32& size, int& hFile)
     return (true);
 }
 #else // EDITOR
-static int open_internal(LPCSTR fn, int& handle)
+static int open_internal(pcstr fn, int& handle)
 {
+#if defined(WINDOWS)
     return (_sopen_s(&handle, fn, _O_RDONLY | _O_BINARY, _SH_DENYNO, _S_IREAD));
+#elif defined(LINUX) || defined(FREEBSD)
+    pstr conv_fn = xr_strdup(fn);
+    convert_path_separators(conv_fn);
+    handle = open(conv_fn, _O_RDONLY);
+    xr_free(conv_fn);
+
+    return (handle == -1);
+#endif
 }
 
-bool file_handle_internal(LPCSTR file_name, u32& size, int& file_handle)
+bool file_handle_internal(pcstr file_name, size_t& size, int& file_handle)
 {
     if (open_internal(file_name, file_handle))
     {
@@ -119,14 +135,9 @@ bool file_handle_internal(LPCSTR file_name, u32& size, int& file_handle)
 }
 #endif // EDITOR
 
-void* FileDownload(LPCSTR file_name, const int& file_handle, u32& file_size)
+void* FileDownload(pcstr file_name, const int& file_handle, size_t& file_size)
 {
-    void* buffer = Memory.mem_alloc(file_size
-#ifdef DEBUG_MEMORY_NAME
-        ,
-        "FILE in memory"
-#endif // DEBUG_MEMORY_NAME
-        );
+    void* buffer = xr_malloc(file_size);
 
     int r_bytes = _read(file_handle, buffer, file_size);
     R_ASSERT3(
@@ -141,7 +152,7 @@ void* FileDownload(LPCSTR file_name, const int& file_handle, u32& file_size)
     return (buffer);
 }
 
-void* FileDownload(LPCSTR file_name, u32* buffer_size)
+void* FileDownload(pcstr file_name, size_t* buffer_size)
 {
     int file_handle;
     R_ASSERT3(file_handle_internal(file_name, *buffer_size, file_handle), "can't open file : ", file_name);
@@ -151,24 +162,24 @@ void* FileDownload(LPCSTR file_name, u32* buffer_size)
 
 typedef char MARK[9];
 IC void mk_mark(MARK& M, const char* S) { strncpy_s(M, sizeof(M), S, 8); }
-void FileCompress(const char* fn, const char* sign, void* data, u32 size)
+void FileCompress(pcstr fn, pcstr sign, void* data, size_t size)
 {
     MARK M;
     mk_mark(M, sign);
 
-    int H = open(fn, O_BINARY | O_CREAT | O_WRONLY | O_TRUNC, S_IREAD | S_IWRITE);
+    int H = _open(fn, O_BINARY | O_CREAT | O_WRONLY | O_TRUNC, S_IREAD | S_IWRITE);
     R_ASSERT2(H > 0, fn);
     _write(H, &M, 8);
     _writeLZ(H, data, size);
     _close(H);
 }
 
-void* FileDecompress(const char* fn, const char* sign, u32* size)
+void* FileDecompress(pcstr fn, pcstr sign, size_t* size)
 {
     MARK M, F;
     mk_mark(M, sign);
 
-    int H = open(fn, O_BINARY | O_RDONLY);
+    int H = _open(fn, O_BINARY | O_RDONLY);
     R_ASSERT2(H > 0, fn);
     _read(H, &F, 8);
     if (strncmp(M, F, 8) != 0)
@@ -179,8 +190,7 @@ void* FileDecompress(const char* fn, const char* sign, u32* size)
     R_ASSERT(strncmp(M, F, 8) == 0);
 
     void* ptr = 0;
-    u32 SZ;
-    SZ = _readLZ(H, ptr, filelength(H) - 8);
+    const size_t SZ = _readLZ(H, ptr, _filelength(H) - 8);
     _close(H);
     if (size)
         *size = SZ;
@@ -193,7 +203,7 @@ void* FileDecompress(const char* fn, const char* sign, u32* size)
 //---------------------------------------------------
 // memory
 CMemoryWriter::~CMemoryWriter() { xr_free(data); }
-void CMemoryWriter::w(const void* ptr, u32 count)
+void CMemoryWriter::w(const void* ptr, size_t count)
 {
     if (position + count > mem_size)
     {
@@ -203,19 +213,9 @@ void CMemoryWriter::w(const void* ptr, u32 count)
         while (mem_size <= (position + count))
             mem_size *= 2;
         if (0 == data)
-            data = (BYTE*)Memory.mem_alloc(mem_size
-#ifdef DEBUG_MEMORY_NAME
-                ,
-                "CMemoryWriter - storage"
-#endif // DEBUG_MEMORY_NAME
-                );
+            data = (BYTE*)xr_malloc(mem_size);
         else
-            data = (BYTE*)Memory.mem_realloc(data, mem_size
-#ifdef DEBUG_MEMORY_NAME
-                ,
-                "CMemoryWriter - storage"
-#endif // DEBUG_MEMORY_NAME
-                );
+            data = (BYTE*)xr_realloc(data, mem_size);
     }
     CopyMemory(data + position, ptr, count);
     position += count;
@@ -246,23 +246,23 @@ void IWriter::close_chunk()
 {
     VERIFY(!chunk_pos.empty());
 
-    int pos = tell();
+    const size_t pos = tell();
     seek(chunk_pos.top());
     w_u32(pos - chunk_pos.top() - 4);
     seek(pos);
     chunk_pos.pop();
 }
-u32 IWriter::chunk_size() // returns size of currently opened chunk, 0 otherwise
+size_t IWriter::chunk_size()
 {
     if (chunk_pos.empty())
         return 0;
     return tell() - chunk_pos.top() - 4;
 }
 
-void IWriter::w_compressed(void* ptr, u32 count)
+void IWriter::w_compressed(void* ptr, size_t count)
 {
     BYTE* dest = 0;
-    unsigned dest_sz = 0;
+    size_t dest_sz = 0;
     _compressLZ(&dest, &dest_sz, ptr, count);
 
     // if (g_dummy_stuff)
@@ -273,7 +273,7 @@ void IWriter::w_compressed(void* ptr, u32 count)
     xr_free(dest);
 }
 
-void IWriter::w_chunk(u32 type, void* data, u32 size)
+void IWriter::w_chunk(u32 type, void* data, size_t size)
 {
     open_chunk(type);
     if (type & CFS_CompressMark)
@@ -318,15 +318,15 @@ void IWriter::VPrintf(const char* format, va_list args)
 // base stream
 IReader* IReader::open_chunk(u32 ID)
 {
-    BOOL bCompressed;
+    bool bCompressed;
 
-    u32 dwSize = find_chunk(ID, &bCompressed);
+    const size_t dwSize = find_chunk(ID, &bCompressed);
     if (dwSize != 0)
     {
         if (bCompressed)
         {
             BYTE* dest;
-            unsigned dest_sz;
+            size_t dest_sz;
             _decompressLZ(&dest, &dest_sz, pointer(), dwSize);
             return new CTempReader(dest, dest_sz, tell() + dwSize);
         }
@@ -354,7 +354,7 @@ IReaderTestPolicy::~IReaderTestPolicy() { xr_delete(m_test); };
 find_chunk_counter g_find_chunk_counter;
 #endif // FIND_CHUNK_BENCHMARK_ENABLE
 
-u32 IReader::find_chunk(u32 ID, BOOL* bCompressed) { return inherited::find_chunk(ID, bCompressed); }
+size_t IReader::find_chunk(u32 ID, bool* bCompressed) { return inherited::find_chunk(ID, bCompressed); }
 IReader* IReader::open_chunk_iterator(u32& ID, IReader* _prev)
 {
     if (0 == _prev)
@@ -373,12 +373,12 @@ IReader* IReader::open_chunk_iterator(u32& ID, IReader* _prev)
     if (elapsed() < 8)
         return NULL;
     ID = r_u32();
-    u32 _size = r_u32();
+    const size_t _size = r_u32();
     if (ID & CFS_CompressMark)
     {
         // compressed
         u8* dest;
-        unsigned dest_sz;
+        size_t dest_sz;
         _decompressLZ(&dest, &dest_sz, pointer(), _size);
         return new CTempReader(dest, dest_sz, tell() + _size);
     }
@@ -389,17 +389,17 @@ IReader* IReader::open_chunk_iterator(u32& ID, IReader* _prev)
     }
 }
 
-void IReader::r(void* p, int cnt)
+void IReader::r(void* p, size_t cnt)
 {
     VERIFY(Pos + cnt <= Size);
     CopyMemory(p, pointer(), cnt);
     advance(cnt);
 #ifdef DEBUG
-    BOOL bShow = FALSE;
+    bool bShow = false;
     if (dynamic_cast<CFileReader*>(this))
-        bShow = TRUE;
+        bShow = true;
     if (dynamic_cast<CVirtualFileReader*>(this))
-        bShow = TRUE;
+        bShow = true;
     if (bShow)
     {
         FS.dwOpenCounter++;
@@ -407,10 +407,10 @@ void IReader::r(void* p, int cnt)
 #endif
 };
 
-IC BOOL is_term(char a) { return (a == 13) || (a == 10); };
-IC u32 IReader::advance_term_string()
+IC bool is_term(char a) { return (a == 13) || (a == 10); };
+IC size_t IReader::advance_term_string()
 {
-    u32 sz = 0;
+    size_t sz = 0;
     char* src = (char*)data;
     while (!eof())
     {
@@ -425,12 +425,14 @@ IC u32 IReader::advance_term_string()
     }
     return sz;
 }
-void IReader::r_string(char* dest, u32 tgt_sz)
+void IReader::r_string(char* dest, size_t tgt_sz)
 {
     char* src = (char*)data + Pos;
-    u32 sz = advance_term_string();
+    size_t sz = advance_term_string();
     R_ASSERT2(sz < (tgt_sz - 1), "Dest string less than needed.");
+#if defined(WINDOWS)
     R_ASSERT(!IsBadReadPtr((void*)src, sz));
+#endif
 
 #ifdef _EDITOR
     CopyMemory(dest, src, sz);
@@ -442,13 +444,13 @@ void IReader::r_string(char* dest, u32 tgt_sz)
 void IReader::r_string(xr_string& dest)
 {
     char* src = (char*)data + Pos;
-    u32 sz = advance_term_string();
+    size_t sz = advance_term_string();
     dest.assign(src, sz);
 }
-void IReader::r_stringZ(char* dest, u32 tgt_sz)
+void IReader::r_stringZ(char* dest, size_t tgt_sz)
 {
     char* src = (char*)data;
-    u32 sz = xr_strlen(src);
+    size_t sz = xr_strlen(src);
     R_ASSERT2(sz < tgt_sz, "Dest string less than needed.");
     while ((src[Pos] != 0) && (!eof()))
         *dest++ = src[Pos++];
@@ -484,14 +486,17 @@ CPackReader::~CPackReader()
 #ifdef FS_DEBUG
     unregister_file_mapping(base_address, Size);
 #endif // DEBUG
-
+#if defined(WINDOWS)
     UnmapViewOfFile(base_address);
+#elif defined(LINUX)
+    ::munmap(base_address, Size);
+#endif
 };
 //---------------------------------------------------
 // file stream
-CFileReader::CFileReader(const char* name)
+CFileReader::CFileReader(pcstr name)
 {
-    data = (char*)FileDownload(name, (u32*)&Size);
+    data = (char*)FileDownload(name, (size_t*)&Size);
     Pos = 0;
 };
 CFileReader::~CFileReader() { xr_free(data); };
@@ -499,12 +504,13 @@ CFileReader::~CFileReader() { xr_free(data); };
 // compressed stream
 CCompressedReader::CCompressedReader(const char* name, const char* sign)
 {
-    data = (char*)FileDecompress(name, sign, (u32*)&Size);
+    data = (char*)FileDecompress(name, sign, (size_t*)&Size);
     Pos = 0;
 }
 CCompressedReader::~CCompressedReader() { xr_free(data); };
-CVirtualFileRW::CVirtualFileRW(const char* cFileName)
+CVirtualFileRW::CVirtualFileRW(pcstr cFileName)
 {
+#if defined(WINDOWS)
     // Open the file
     hSrcFile = CreateFile(cFileName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     R_ASSERT3(hSrcFile != INVALID_HANDLE_VALUE, cFileName, xrDebug::ErrorToString(GetLastError()));
@@ -516,7 +522,19 @@ CVirtualFileRW::CVirtualFileRW(const char* cFileName)
 
     data = (char*)MapViewOfFile(hSrcMap, FILE_MAP_ALL_ACCESS, 0, 0, 0);
     R_ASSERT3(data, cFileName, xrDebug::ErrorToString(GetLastError()));
-
+#elif defined(LINUX)
+    pstr conv_path = xr_strdup(cFileName);
+    convert_path_separators(conv_path);
+    hSrcFile = ::open(conv_path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH); //за такое использование указателя нужно убивать, но пока пусть будет
+    xr_free(conv_path);
+    R_ASSERT3(hSrcFile != -1, cFileName, xrDebug::ErrorToString(GetLastError()));
+    struct stat file_info;
+    ::fstat(hSrcFile, &file_info);
+    Size = (int)file_info.st_size;
+    R_ASSERT3(Size, cFileName, xrDebug::ErrorToString(GetLastError()));
+    data = (char*)::mmap(NULL, Size, PROT_READ | PROT_WRITE, MAP_SHARED, hSrcFile, 0);
+    R_ASSERT3(data && data != MAP_FAILED, cFileName, xrDebug::ErrorToString(GetLastError()));
+#endif
 #ifdef FS_DEBUG
     register_file_mapping(data, Size, cFileName);
 #endif // DEBUG
@@ -527,14 +545,20 @@ CVirtualFileRW::~CVirtualFileRW()
 #ifdef FS_DEBUG
     unregister_file_mapping(data, Size);
 #endif // DEBUG
-
+#if defined(WINDOWS)
     UnmapViewOfFile((void*)data);
     CloseHandle(hSrcMap);
     CloseHandle(hSrcFile);
+#elif defined(LINUX)
+    ::munmap((void*)data, Size);
+    ::close(hSrcFile);
+    hSrcFile = -1;
+#endif
 }
 
-CVirtualFileReader::CVirtualFileReader(const char* cFileName)
+CVirtualFileReader::CVirtualFileReader(pcstr cFileName)
 {
+#if defined(WINDOWS)
     // Open the file
     hSrcFile = CreateFile(cFileName, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
     R_ASSERT3(hSrcFile != INVALID_HANDLE_VALUE, cFileName, xrDebug::ErrorToString(GetLastError()));
@@ -546,6 +570,19 @@ CVirtualFileReader::CVirtualFileReader(const char* cFileName)
 
     data = (char*)MapViewOfFile(hSrcMap, FILE_MAP_READ, 0, 0, 0);
     R_ASSERT3(data, cFileName, xrDebug::ErrorToString(GetLastError()));
+#elif defined(LINUX)
+    pstr conv_path = xr_strdup(cFileName);
+    convert_path_separators(conv_path);
+    hSrcFile = ::open(conv_path, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH); //за такое использование указателя нужно убивать, но пока пусть будет
+    xr_free(conv_path);
+    R_ASSERT3(hSrcFile != -1, cFileName, xrDebug::ErrorToString(GetLastError()));
+    struct stat file_info;
+    ::fstat(hSrcFile, &file_info);
+    Size = (int)file_info.st_size;
+    R_ASSERT3(Size, cFileName, xrDebug::ErrorToString(GetLastError()));
+    data = (char*)::mmap(NULL, Size, PROT_READ, MAP_SHARED, hSrcFile, 0);
+    R_ASSERT3(data && data != MAP_FAILED, cFileName, xrDebug::ErrorToString(GetLastError()));
+#endif
 
 #ifdef FS_DEBUG
     register_file_mapping(data, Size, cFileName);
@@ -557,8 +594,13 @@ CVirtualFileReader::~CVirtualFileReader()
 #ifdef FS_DEBUG
     unregister_file_mapping(data, Size);
 #endif // DEBUG
-
+#if defined(WINDOWS)
     UnmapViewOfFile((void*)data);
     CloseHandle(hSrcMap);
     CloseHandle(hSrcFile);
+#elif defined(LINUX)
+    ::munmap((void*)data, Size);
+    ::close(hSrcFile);
+    hSrcFile = -1;
+#endif
 }

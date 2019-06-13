@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "StdAfx.h"
 #pragma hdrstop
 
 #include "Level.h"
@@ -33,10 +33,14 @@ void SStaticSound::Update(u32 game_time, u32 global_time)
     {
         if (0 == m_Source._feedback())
         {
+            Fvector occ[3];
+            const float occluder_volume = GEnv.Sound->get_occlusion(m_Position, .2f, occ);
+            const float vol = m_Volume * occluder_volume;
+            
             if ((0 == m_PauseTime.x) && (0 == m_PauseTime.y))
             {
                 m_Source.play_at_pos(0, m_Position, sm_Looped);
-                m_Source.set_volume(m_Volume);
+                m_Source.set_volume(vol);
                 m_Source.set_frequency(m_Freq);
                 m_StopTime = 0xFFFFFFFF;
             }
@@ -46,7 +50,7 @@ void SStaticSound::Update(u32 game_time, u32 global_time)
                 {
                     bool bFullPlay = (0 == m_PlayTime.x) && (0 == m_PlayTime.y);
                     m_Source.play_at_pos(0, m_Position, bFullPlay ? 0 : sm_Looped);
-                    m_Source.set_volume(m_Volume);
+                    m_Source.set_volume(vol);
                     m_Source.set_frequency(m_Freq);
                     if (bFullPlay)
                     {
@@ -65,13 +69,13 @@ void SStaticSound::Update(u32 game_time, u32 global_time)
         else
         {
             if (Device.dwTimeGlobal >= m_StopTime)
-                m_Source.stop_deffered();
+                m_Source.stop_deferred();
         }
     }
     else
     {
         if (0 != m_Source._feedback())
-            m_Source.stop_deffered();
+            m_Source.stop_deferred();
     }
 }
 //-----------------------------------------------------------------------------
@@ -132,11 +136,13 @@ BOOL SMusicTrack::IsPlaying()
 }
 
 void SMusicTrack::SetVolume(float volume) { m_SourceStereo.set_volume(volume * m_Volume); }
-void SMusicTrack::Stop() { m_SourceStereo.stop_deffered(); }
+void SMusicTrack::Stop() { m_SourceStereo.stop_deferred(); }
+
 //-----------------------------------------------------------------------------
 // level sound manager
 //-----------------------------------------------------------------------------
-CLevelSoundManager::CLevelSoundManager() { m_NextTrackTime = 0; }
+CLevelSoundManager::CLevelSoundManager() : m_CurrentTrack(0) { m_NextTrackTime = 0; }
+
 void CLevelSoundManager::Load()
 {
     // static level sounds
@@ -170,7 +176,7 @@ void CLevelSoundManager::Load()
                 Msg("- Loading music tracks from '%s'...", music_sect);
 #endif // #ifdef DEBUG
                 CInifile::Sect& S = gameLtx.r_section(music_sect);
-                CInifile::SectCIt it = S.Data.begin(), end = S.Data.end();
+                auto it = S.Data.cbegin(), end = S.Data.cend();
                 m_MusicTracks.reserve(S.Data.size());
                 for (; it != end; it++)
                 {

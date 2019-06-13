@@ -3,6 +3,7 @@
 
 #include "Motion.hpp"
 #include "xrCore/Animation/Envelope.hpp"
+#include "SDL.h"
 
 #define EOBJ_OMOTION 0x1100
 #define EOBJ_SMOTION 0x1200
@@ -12,12 +13,7 @@
 //------------------------------------------------------------------------------------------
 // CCustomMotion
 //------------------------------------------------------------------------------------------
-CCustomMotion::CCustomMotion()
-{
-    iFrameStart = 0;
-    iFrameEnd = 0;
-    fFPS = 30.f;
-}
+CCustomMotion::CCustomMotion() : mtype(), iFrameStart(), iFrameEnd(), fFPS(30.) {}
 
 CCustomMotion::CCustomMotion(CCustomMotion* source) { *this = *source; }
 CCustomMotion::~CCustomMotion() {}
@@ -194,7 +190,7 @@ BOOL COMotion::NormalizeKeys(float from_time, float to_time, float speed)
     float t0 = E->keys.front()->time;
     FloatVec tms;
     tms.push_back(t0);
-    for (KeyIt it = E->keys.begin() + 1; it != E->keys.end(); it++)
+    for (KeyIt it = E->keys.begin() + 1; it != E->keys.end(); ++it)
     {
         if ((*it)->time > from_time)
         {
@@ -227,7 +223,7 @@ BOOL COMotion::NormalizeKeys(float from_time, float to_time, float speed)
         E = Envelope(EChannelType(ch));
         FloatIt f_it = tms.begin();
         VERIFY(tms.size() == E->keys.size());
-        for (KeyIt k_it = E->keys.begin(); k_it != E->keys.end(); k_it++, f_it++)
+        for (KeyIt k_it = E->keys.begin(); k_it != E->keys.end(); ++k_it, ++f_it)
             (*k_it)->time = *f_it;
     }
 
@@ -271,7 +267,7 @@ CSMotion::CSMotion(CSMotion* source) : CCustomMotion(source)
 CSMotion::~CSMotion() { Clear(); }
 void CSMotion::Clear()
 {
-    for (BoneMotionIt bm_it = bone_mots.begin(); bm_it != bone_mots.end(); bm_it++)
+    for (auto bm_it = bone_mots.begin(); bm_it != bone_mots.end(); ++bm_it)
     {
         for (int ch = 0; ch < ctMaxChannel; ch++)
             xr_delete(bm_it->envs[ch]);
@@ -281,7 +277,7 @@ void CSMotion::Clear()
 
 st_BoneMotion* CSMotion::FindBoneMotion(shared_str name)
 {
-    for (BoneMotionIt bm_it = bone_mots.begin(); bm_it != bone_mots.end(); bm_it++)
+    for (auto bm_it = bone_mots.begin(); bm_it != bone_mots.end(); ++bm_it)
         if (bm_it->name.equal(name))
             return &*bm_it;
     return 0;
@@ -376,7 +372,7 @@ void CSMotion::Save(IWriter& F)
     F.w_float(fFalloff);
     F.w_float(fPower);
     F.w_u16((u16)bone_mots.size());
-    for (BoneMotionIt bm_it = bone_mots.begin(); bm_it != bone_mots.end(); bm_it++)
+    for (auto bm_it = bone_mots.begin(); bm_it != bone_mots.end(); ++bm_it)
     {
         xr_strlwr(bm_it->name);
         F.w_stringZ(bm_it->name);
@@ -405,9 +401,9 @@ bool CSMotion::Load(IReader& F)
         fPower = F.r_float();
         bone_mots.resize(F.r_u32());
         string64 temp_buf;
-        for (BoneMotionIt bm_it = bone_mots.begin(); bm_it != bone_mots.end(); bm_it++)
+        for (auto bm_it = bone_mots.begin(); bm_it != bone_mots.end(); ++bm_it)
         {
-            bm_it->SetName(itoa(int(bm_it - bone_mots.begin()), temp_buf, 10));
+            bm_it->SetName(xr_itoa(int(bm_it - bone_mots.begin()), temp_buf, 10));
             bm_it->m_Flags.assign((u8)F.r_u32());
             for (int ch = 0; ch < ctMaxChannel; ch++)
             {
@@ -428,7 +424,7 @@ bool CSMotion::Load(IReader& F)
             fPower = F.r_float();
             bone_mots.resize(F.r_u32());
             string64 buf;
-            for (BoneMotionIt bm_it = bone_mots.begin(); bm_it != bone_mots.end(); bm_it++)
+            for (auto bm_it = bone_mots.begin(); bm_it != bone_mots.end(); ++bm_it)
             {
                 F.r_stringZ(buf, sizeof(buf));
                 bm_it->SetName(buf);
@@ -452,7 +448,7 @@ bool CSMotion::Load(IReader& F)
                 fPower = F.r_float();
                 bone_mots.resize(F.r_u16());
                 string64 buf;
-                for (BoneMotionIt bm_it = bone_mots.begin(); bm_it != bone_mots.end(); bm_it++)
+                for (auto bm_it = bone_mots.begin(); bm_it != bone_mots.end(); ++bm_it)
                 {
                     F.r_stringZ(buf, sizeof(buf));
                     bm_it->SetName(buf);
@@ -477,14 +473,14 @@ bool CSMotion::Load(IReader& F)
         }
     }
 
-    for (BoneMotionIt bm_it = bone_mots.begin(); bm_it != bone_mots.end(); bm_it++)
+    for (auto bm_it = bone_mots.begin(); bm_it != bone_mots.end(); ++bm_it)
         xr_strlwr(bm_it->name);
     return true;
 }
 
 void CSMotion::Optimize()
 {
-    for (BoneMotionIt bm_it = bone_mots.begin(); bm_it != bone_mots.end(); bm_it++)
+    for (auto bm_it = bone_mots.begin(); bm_it != bone_mots.end(); ++bm_it)
     {
         for (int ch = 0; ch < ctMaxChannel; ch++)
             bm_it->envs[ch]->Optimize();
@@ -494,7 +490,7 @@ void CSMotion::Optimize()
 void CSMotion::SortBonesBySkeleton(BoneVec& bones)
 {
     BoneMotionVec new_bone_mots;
-    for (BoneIt b_it = bones.begin(); b_it != bones.end(); ++b_it)
+    for (auto b_it = bones.begin(); b_it != bones.end(); ++b_it)
     {
         st_BoneMotion* BM = FindBoneMotion((*b_it)->Name());
         // previously there was R_ASSERT(BM) (for use with plugins only)

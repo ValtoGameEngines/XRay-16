@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Common/Platform.hpp"
 #include "xrCore/xrCore.h"
 #ifdef XRLC_LIGHT_EXPORTS
 #define XRLC_LIGHT_API XR_EXPORT
@@ -8,16 +7,17 @@
 #define XRLC_LIGHT_API XR_IMPORT
 #endif
 
+#pragma warning(push)
 #pragma warning(disable : 4995)
 #include <commctrl.h>
 #include <d3dx9.h>
 #include <io.h>
 #include <fcntl.h>
 #include <sys\stat.h>
-#pragma warning(default : 4995)
+#pragma warning(pop)
 
 #include "Common/_d3d_extensions.h"
-#include "editors/LevelEditor/Engine/communicate.h"
+#include "utils/communicate.h"
 
 static const int edge2idx3[3][3] = {{0, 1, 2}, {1, 2, 0}, {2, 0, 1}};
 static const int edge2idx[3][2] = {{0, 1}, {1, 2}, {2, 0}};
